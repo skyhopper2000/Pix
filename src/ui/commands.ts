@@ -192,6 +192,8 @@ export const commands: Command[] = [
   { id: "tool.pixelPerfect", label: "Pixel-Perfect Strokes", menu: "Tools", sep: true, run: () => ui.set((s) => ({ pixelPerfect: !s.pixelPerfect })), checked: () => ui.get().pixelPerfect },
   { id: "tool.fillGlobal", label: "Global Fill", menu: "Tools", run: () => ui.set((s) => ({ fillGlobal: !s.fillGlobal })), checked: () => ui.get().fillGlobal },
   { id: "tool.shapeFilled", label: "Filled Shapes", menu: "Tools", run: () => ui.set((s) => ({ shapeFilled: !s.shapeFilled })), checked: () => ui.get().shapeFilled },
+  { id: "tool.brushUp", label: "Larger Brush", menu: "Tools", shortcut: "]", run: () => ui.set((s) => ({ brushSize: Math.min(8, s.brushSize + 1) })) },
+  { id: "tool.brushDown", label: "Smaller Brush", menu: "Tools", shortcut: "[", run: () => ui.set((s) => ({ brushSize: Math.max(1, s.brushSize - 1) })) },
   { id: "tool.swap", label: "Swap Colors", menu: "Tools", shortcut: "X", run: () => ui.set((s) => ({ primary: s.secondary, secondary: s.primary })) },
 ];
 

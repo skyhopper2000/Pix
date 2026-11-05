@@ -605,3 +605,14 @@ input[type="color"] {
   width: max-content;
   padding: 16px;
 }
+
+/* ---------- tile editor ---------- */
+.editor-footer {
+  display: flex;
+  gap: 12px;
+  padding: 2px 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  min-height: 20px;
+  align-items: center;
+}

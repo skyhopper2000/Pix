@@ -45,6 +45,7 @@ export interface UiState {
   tileId: TileId | null;
 
   tool: ToolId;
+  brushSize: number;
   pixelPerfect: boolean;
   fillGlobal: boolean;
   shapeFilled: boolean;
@@ -89,6 +90,7 @@ export const initialUi = (): UiState => ({
   previewCell: null,
   tileId: null,
   tool: "pencil",
+  brushSize: 1,
   pixelPerfect: true,
   fillGlobal: false,
   shapeFilled: false,
