@@ -118,7 +118,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 2 | `step/02-core-model` | Model types, IDs, pixel/color helpers, subset templates + Wang ids, pure ops (linked tiles, delete-everywhere), undo/redo history | ready for review |
 | 3 | `step/03-import` | PNG codec, slicing (offset/spacing), exact dedupe, empty filter, naming, preview rebuild, re-import, palette extraction, near-duplicate grouping + merge op | ready for review |
 | 4 | `step/04-export` | Sheet packing, scale, extrusion, `.tsx` writer, manifest, zip, palette files | ready for review (not yet loaded in Tiled) |
-| 5 | `step/05-project-io` | Project folder serialize/deserialize, platform save/open (web + Tauri) | planned |
+| 5 | `step/05-project-io` | Project folder serialize/deserialize, platform save/open (web + Tauri) | ready for review |
 | 6 | `step/06-shell-ui` | Main window, docking layout + Reset Layout, menus, project tree, tile bar, palette panel, theme, command palette | planned |
 | 7 | `step/07-tile-editor` | Tile canvas, zoom, all drawing tools + shortcuts, pixel-perfect, neighbour context, selection/copy/paste | planned |
 | 8 | `step/08-subsets-previews` | Subset UI (slots, guides, terrains, drag-drop, draw-into-slot), map preview editor (paint/stamp/clear/highlight/grid/zoom/PNG export), subset previews | planned |
