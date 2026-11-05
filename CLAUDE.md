@@ -114,7 +114,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | # | Branch | Scope | Status |
 | --- | --- | --- | --- |
 | 0 | `main` | README.md, CLAUDE.md, spec | done |
-| 1 | `step/01-scaffold` | Vite + React + TS + Vitest, Tauri 2 skeleton, platform layer stub, lint/typecheck scripts | planned |
+| 1 | `step/01-scaffold` | Vite + React + TS + Vitest, Tauri 2 skeleton, platform layer, typecheck/test/build scripts | ready for review (Tauri uncompiled) |
 | 2 | `step/02-core-model` | Model types, IDs, pixel/color helpers, pure ops (linked tiles, delete-everywhere), store + undo/redo | planned |
 | 3 | `step/03-import` | PNG codec, slicing (offset/spacing), exact dedupe, empty filter, naming, preview rebuild, re-import, palette extraction, near-duplicate grouping + merge op | planned |
 | 4 | `step/04-templates-export` | Templates + Wang ids, sheet packing, scale, extrusion, `.tsx` writer, manifest, zip, palette files | planned |
