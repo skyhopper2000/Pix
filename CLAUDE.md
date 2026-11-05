@@ -92,7 +92,7 @@ Rules:
 - **Wang ids** (Tiled `.tsx`, 8 comma-separated values, clockwise from top): `top, top-right, right, bottom-right, bottom, bottom-left, left, top-left`. Terrain A = color 1, terrain B = color 2, 0 = unused. Corner sets use only indices 1,3,5,7; edge sets only 0,2,4,6; mixed (blob) uses all 8.
 - **Templates**: `blob47` has 8×6 cells holding the 47 blob masks in ascending order of reduced 8-bit mask (bits N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128; a corner bit counts only if both adjacent edges are set); the 48th cell is not a slot. `corner16`: 4×4, index = NE·1 + SE·2 + SW·4 + NW·8. `edge16`: 4×4, index = N·1 + E·2 + S·4 + W·8. A set bit means terrain B.
 - **Slot auto-names**: `{terrainA}_{terrainB}_{dirs}`, where `dirs` lists the compass points that are terrain B in N, NE, E, SE, S, SW, W, NW order, joined by `-` (e.g. `grass_dirt_NE`, `grass_dirt_N-NE-E`), `all` when every position is B, `none` when none is.
-- **Export**: sheets are packed left→right, top→bottom. Extrusion repeats edge pixels outward by `e` px. The `.tsx` then gets `margin = padding + e` and `spacing = spacing + 2e`, with tilewidth/height = scaled tile size. Scales are nearest-neighbour; several scales export as `name@2x.png` / `name@2x.tsx` (1× has no suffix). Template subsets keep fixed slot order, and empty slots/cells are transparent.
+- **Export**: sheets are packed left→right, top→bottom. Extrusion repeats edge pixels outward by `e` px. The `.tsx` then gets `margin = padding + e` and `spacing = spacing + 2e`, with tilewidth/height = scaled tile size. Scales are nearest-neighbour; several scales export as `name@2x.png` / `name@2x.tsx` (1× has no suffix). Template subsets keep fixed slot order on the template grid, and empty slots/cells are transparent with no `<wangtile>`. Parent auto columns = ⌈√n⌉; unstructured auto keeps the arrangement, trimming trailing empty rows/cols. One tileset in scope → files at the zip root; several → one folder per tileset. Tile names are written as a `name` tile property.
 
 ## Open decisions (provisional, awaiting the human)
 
@@ -117,7 +117,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 1 | `step/01-scaffold` | Vite + React + TS + Vitest, Tauri 2 skeleton, platform layer, typecheck/test/build scripts | ready for review (Tauri uncompiled) |
 | 2 | `step/02-core-model` | Model types, IDs, pixel/color helpers, subset templates + Wang ids, pure ops (linked tiles, delete-everywhere), undo/redo history | ready for review |
 | 3 | `step/03-import` | PNG codec, slicing (offset/spacing), exact dedupe, empty filter, naming, preview rebuild, re-import, palette extraction, near-duplicate grouping + merge op | ready for review |
-| 4 | `step/04-export` | Sheet packing, scale, extrusion, `.tsx` writer, manifest, zip, palette files | planned |
+| 4 | `step/04-export` | Sheet packing, scale, extrusion, `.tsx` writer, manifest, zip, palette files | ready for review (not yet loaded in Tiled) |
 | 5 | `step/05-project-io` | Project folder serialize/deserialize, platform save/open (web + Tauri) | planned |
 | 6 | `step/06-shell-ui` | Main window, docking layout + Reset Layout, menus, project tree, tile bar, palette panel, theme, command palette | planned |
 | 7 | `step/07-tile-editor` | Tile canvas, zoom, all drawing tools + shortcuts, pixel-perfect, neighbour context, selection/copy/paste | planned |
