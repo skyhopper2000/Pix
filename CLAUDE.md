@@ -116,7 +116,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 0 | `main` | README.md, CLAUDE.md, spec | done |
 | 1 | `step/01-scaffold` | Vite + React + TS + Vitest, Tauri 2 skeleton, platform layer, typecheck/test/build scripts | ready for review (Tauri uncompiled) |
 | 2 | `step/02-core-model` | Model types, IDs, pixel/color helpers, subset templates + Wang ids, pure ops (linked tiles, delete-everywhere), undo/redo history | ready for review |
-| 3 | `step/03-import` | PNG codec, slicing (offset/spacing), exact dedupe, empty filter, naming, preview rebuild, re-import, palette extraction, near-duplicate grouping + merge op | planned |
+| 3 | `step/03-import` | PNG codec, slicing (offset/spacing), exact dedupe, empty filter, naming, preview rebuild, re-import, palette extraction, near-duplicate grouping + merge op | ready for review |
 | 4 | `step/04-export` | Sheet packing, scale, extrusion, `.tsx` writer, manifest, zip, palette files | planned |
 | 5 | `step/05-project-io` | Project folder serialize/deserialize, platform save/open (web + Tauri) | planned |
 | 6 | `step/06-shell-ui` | Main window, docking layout + Reset Layout, menus, project tree, tile bar, palette panel, theme, command palette | planned |
