@@ -679,3 +679,67 @@ input[type="color"] {
   background: var(--bg-input);
   opacity: 0.3;
 }
+
+/* ---------- import / export / near-dup ---------- */
+.import-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.import-preview {
+  display: block;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+}
+.import-form {
+  flex: 1;
+  min-width: 0;
+}
+.import-summary {
+  margin: 8px 0 0;
+}
+.scope-tree,
+.scope-tree ul {
+  list-style: none;
+  margin: 0 0 8px 120px;
+  padding: 0;
+}
+.scope-tree ul {
+  margin: 0 0 0 20px;
+}
+.neardup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.neardup-group {
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+.neardup-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.neardup-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+.neardup-tile.keep {
+  border-color: var(--focus);
+  background: var(--bg-sel);
+}
+.neardup-tile input {
+  margin: 0;
+}
+.neardup-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}

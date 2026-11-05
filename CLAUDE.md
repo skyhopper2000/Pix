@@ -122,7 +122,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 6 | `step/06-shell-ui` | Main window, docking layout + Reset Layout, menus, project tree, tile bar, palette panel, theme, command palette | ready for review |
 | 7 | `step/07-tile-editor` | Tile canvas, zoom, all drawing tools + shortcuts, pixel-perfect, neighbour context, selection/copy/paste | ready for review |
 | 8 | `step/08-subsets-previews` | Subset UI (slots, guides, terrains, drag-drop, draw-into-slot), map preview editor (paint/stamp/clear/highlight/grid/zoom/PNG export), subset previews | ready for review |
-| 9 | `step/09-dialogs` | Import dialog, near-duplicate review panel, export dialog, Export Again, palette import/export | planned |
+| 9 | `step/09-dialogs` | Import dialog, near-duplicate review panel, export dialog, Export Again, palette import/export | ready for review |
 | 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | planned |
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).

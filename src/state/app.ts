@@ -17,7 +17,7 @@ export type Dialog =
   | { kind: "newPreview" }
   | { kind: "import"; fileName: string; bytes: Uint8Array }
   | { kind: "export" }
-  | { kind: "nearDup" }
+  | { kind: "nearDup"; threshold?: number }
   | { kind: "rename"; what: "tile" | "tileset" | "subset" | "preview" | "project"; id: Id; current: string }
   | { kind: "terrains"; subsetId: Id }
   | { kind: "resize"; what: "subset" | "preview"; id: Id; cols: number; rows: number }
