@@ -123,6 +123,19 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 7 | `step/07-tile-editor` | Tile canvas, zoom, all drawing tools + shortcuts, pixel-perfect, neighbour context, selection/copy/paste | ready for review |
 | 8 | `step/08-subsets-previews` | Subset UI (slots, guides, terrains, drag-drop, draw-into-slot), map preview editor (paint/stamp/clear/highlight/grid/zoom/PNG export), subset previews | ready for review |
 | 9 | `step/09-dialogs` | Import dialog, near-duplicate review panel, export dialog, Export Again, palette import/export | ready for review |
-| 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | planned |
+| 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | ready for review (Tiled check pending) |
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
+
+## Waiting on a human
+
+- Review and merge `step/01` … `step/10` into `main` in order (stacked branches).
+- Install Rust + Tauri prerequisites and run `npm run tauri dev` / `npm run tauri build`. `src-tauri/` and `src/platform/tauri.ts` have never been compiled.
+- Load an export in Tiled and paint with the terrain brush (spec acceptance step 10).
+- Decide the open questions above.
+- Hands-on pass with a real mouse/pen. Automated checks used synthetic events.
+
+## Dev tips
+
+- In `npm run dev`, `window.__tileStudio` exposes `{ history, ui, actions }` for inspection. Don't `import()` app modules from the console; Vite may hand you a second copy of the store.
+- Synthetic pointer events need `pointerId: 1` (the mouse), or `setPointerCapture` has nothing to capture.

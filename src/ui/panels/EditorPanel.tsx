@@ -9,6 +9,15 @@ import { editorBridge } from "../commands";
 import { drawChecker, fitCanvas, tileCanvas } from "../render";
 import { EmptyState, IconButton, NumberInput } from "../widgets";
 
+/** Keeps receiving moves outside the canvas. Can throw for synthetic or already-released pointers; drawing still works without it. */
+function capturePointer(e: React.PointerEvent) {
+  try {
+    (e.target as Element).setPointerCapture(e.pointerId);
+  } catch {
+    /* ignore */
+  }
+}
+
 const TOOLS: { id: ToolId; label: string; key: string; icon: string }[] = [
   { id: "pencil", label: "Pencil", key: "B", icon: "✎" },
   { id: "eraser", label: "Eraser", key: "E", icon: "⌫" },
@@ -280,7 +289,7 @@ export function EditorPanel() {
       setStatus(`Picked ${toHex(c)}`);
       return;
     }
-    (e.target as Element).setPointerCapture(e.pointerId);
+    capturePointer(e);
 
     if (t === "select") {
       const s = selRef.current;

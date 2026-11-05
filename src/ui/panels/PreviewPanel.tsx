@@ -11,6 +11,15 @@ import { drawChecker, fitCanvas, tileCanvas } from "../render";
 import { EmptyState, IconButton } from "../widgets";
 import { isTileDrag, readDrag } from "./TileBar";
 
+/** Keeps receiving moves outside the canvas. Can throw for synthetic or already-released pointers; drawing still works without it. */
+function capturePointer(e: React.PointerEvent) {
+  try {
+    (e.target as Element).setPointerCapture(e.pointerId);
+  } catch {
+    /* ignore */
+  }
+}
+
 interface Gesture {
   mode: PreviewTool;
   tool: string;
@@ -176,7 +185,7 @@ export function PreviewPanel() {
     if (mode === "draw") ui.set({ previewCell: i, tileId: id ?? ui.get().tileId, slotIndex: null });
     const base: Gesture = { mode, tool, button: e.button, color: 0, last: p, path: [], base: new Map(), work: new Map(), shaded: new Set(), cells: new Set() };
     if (mode !== "draw") {
-      (e.target as Element).setPointerCapture(e.pointerId);
+      capturePointer(e);
       g.current = base;
       stampCells(base, i, pv);
       return;
@@ -200,7 +209,7 @@ export function PreviewPanel() {
       setStatus(`${toHex(color)} isn't in the locked palette.`);
       return;
     }
-    (e.target as Element).setPointerCapture(e.pointerId);
+    capturePointer(e);
     base.color = color;
     base.tool = t;
     g.current = base;

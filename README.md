@@ -86,7 +86,9 @@ MyGame.tilestudio/
 
 ## Status
 
-Early development. See [CLAUDE.md](CLAUDE.md) for the build plan and progress, and [docs/design-spec.md](docs/design-spec.md) for the full design spec. Sprite mode (animation) is planned for v2.
+Early development. All v1 features are built and run in the browser build; the Windows desktop shell (Tauri) hasn't been compiled yet. See [CLAUDE.md](CLAUDE.md) for the build plan and progress, [docs/steps/](docs/steps/) for per-step notes, and [docs/design-spec.md](docs/design-spec.md) for the full design spec. Sprite mode (animation) is planned for v2.
+
+Not in v1 yet: isometric and hex grids (stretch goal). The palette file is only included in exports when the palette has colours.
 
 ## Building from source
 
