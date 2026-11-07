@@ -64,11 +64,13 @@ src/
     export/        sheet packing, extrusion, scaling, .tsx XML, manifest, zip
     palette/       .gpl/.hex/.pal/Lospec parse + .gpl/.hex write
     project-io/    project folder <-> Project (project.json + tiles/*.png)
-    png.ts         minimal PNG encode/decode (8-bit, non-interlaced) via fflate
+    png.ts         minimal PNG encode/decode (8-bit, non-interlaced) via fflate; decode streams IDAT row by row
+    testing/       test-only helpers (pngReference.ts: the old decoder, an oracle for png.test.ts)
     tools/         pixel tool algorithms: line, rect, ellipse, flood fill, pixel-perfect, lighten/darken
   state/         central store, undo/redo history, UI (non-undoable) state
   platform/      file dialogs + disk I/O: `tauri.ts`, `web.ts`, chosen at runtime
   ui/            React components: layout, panels, canvases, dialogs, command palette
+    import.worker.ts + importClient.ts   decode/slice for the import dialog in a Web Worker (calls core only)
 src-tauri/       Tauri 2 shell (Rust); only plugin wiring, no app logic
 ```
 
@@ -124,6 +126,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 8 | `step/08-subsets-previews` | Subset UI (slots, guides, terrains, drag-drop, draw-into-slot), map preview editor (paint/stamp/clear/highlight/grid/zoom/PNG export), subset previews | ready for review |
 | 9 | `step/09-dialogs` | Import dialog, near-duplicate review panel, export dialog, Export Again, palette import/export | ready for review |
 | 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | ready for review (Tiled check pending) |
+| 12 | `step/12-large-image-import` (from `main`) | Large-image import: streaming PNG decode, in-place cell hashing, batched tile insert, decode/slice in a Web Worker | ready for review (worker not yet run in the Tauri build) |
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
 
@@ -134,6 +137,7 @@ Keep this table current: `planned` → `in progress` → `ready for review` (or 
 - Load an export in Tiled and paint with the terrain brush (spec acceptance step 10).
 - Decide the open questions above.
 - Hands-on pass with a real mouse/pen. Automated checks used synthetic events.
+- Step 12 was branched from `main`, not stacked on step 11: merging it after step 11 will conflict in `ImportDialog.tsx` (step 11 moved `decodeImage.ts` to `src/platform/`; point `importClient.ts` at the new path) and in this file's build-plan table. Run `npm run tauri build` and import a large PNG in the desktop app to check the worker in WebView2.
 
 ## Dev tips
 
