@@ -2,7 +2,7 @@ import { buildExport, exportZipName, zipFiles, type ExportSettings } from "../co
 import type { Id, Project, TileId } from "../core/model";
 import * as ops from "../core/ops";
 import { parsePaletteFile, writeGpl, writeHex } from "../core/palette";
-import { deserializeProject, projectFolderName, serializeProject } from "../core/project-io";
+import { deserializeProject, projectFolderName, projectNameFromFolder, serializeProject } from "../core/project-io";
 import { getPlatform } from "../platform";
 import { activeTileset, history, openTile, reconcileSelection, setStatus, ui } from "./app";
 
@@ -59,17 +59,19 @@ export function openProject() {
 export async function saveProject(forceAs = false) {
   try {
     const platform = await getPlatform();
-    const p = history.project;
-    const files = serializeProject(p, ui.get().preserved);
     const target = ui.get().projectTarget;
     if (target && !forceAs) {
-      await platform.saveFolderTo(target, files);
+      await platform.saveFolderTo(target, serializeProject(history.project, ui.get().preserved));
       history.markSaved();
       setStatus(`Saved ${target.label}`);
       return;
     }
-    const t = await platform.saveFolderAs(projectFolderName(p.name), files);
+    const t = await platform.chooseFolderTarget(projectFolderName(history.project.name));
     if (!t) return;
+    // The name typed in the Save dialog becomes the project's name.
+    const chosen = projectNameFromFolder(t.label);
+    if (chosen && chosen !== history.project.name) history.dispatch("Rename project", (p) => ops.renameProject(p, chosen));
+    await platform.saveFolderTo(t, serializeProject(history.project, ui.get().preserved));
     ui.set({ projectTarget: t });
     history.markSaved();
     setStatus(`Saved ${t.label}`);

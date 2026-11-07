@@ -245,3 +245,7 @@ export function deserializeProject(files: FileTree): LoadResult {
 
 /** "My Game" -> "My Game.tilestudio" */
 export const projectFolderName = (name: string): string => (name.endsWith(PROJECT_EXT) ? name : (name.trim() || "Untitled") + PROJECT_EXT);
+
+/** Inverse of projectFolderName: "My Game.tilestudio" → "My Game". Other suffixes (e.g. ".zip") are dropped too. */
+export const projectNameFromFolder = (folder: string): string =>
+  folder.replace(/\.zip$/i, "").replace(new RegExp(`\\${PROJECT_EXT}$`, "i"), "").trim();

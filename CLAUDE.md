@@ -47,7 +47,7 @@ npm run tauri dev    # desktop shell (requires Rust toolchain)
 npm run tauri build  # .msi installer (requires Rust toolchain)
 ```
 
-The Rust toolchain was **not** installed on the machine where v1 was first scaffolded, so `src-tauri/` hasn't been compiled. Treat it as unverified until someone runs `npm run tauri build`.
+`npm run tauri build` was first run successfully on 2026-11-07 (after repairing a corrupted MSVC install; if `vswhom-sys` fails with nonsense header errors, check that MSVC's `include/*.h` aren't zero-filled and repair VS Build Tools).
 
 ## Architecture
 
@@ -124,13 +124,14 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 8 | `step/08-subsets-previews` | Subset UI (slots, guides, terrains, drag-drop, draw-into-slot), map preview editor (paint/stamp/clear/highlight/grid/zoom/PNG export), subset previews | ready for review |
 | 9 | `step/09-dialogs` | Import dialog, near-duplicate review panel, export dialog, Export Again, palette import/export | ready for review |
 | 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | ready for review (Tiled check pending) |
+| 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog) | in progress |
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
 
 ## Waiting on a human
 
-- Review and merge `step/01` … `step/10` into `main` in order (stacked branches).
-- Install Rust + Tauri prerequisites and run `npm run tauri dev` / `npm run tauri build`. `src-tauri/` and `src/platform/tauri.ts` have never been compiled.
+- Review and merge `step/11-v1-adjustments` (steps 1–10 are merged into `main`).
+- Try *File › Save As…* in the desktop build: the native Save dialog hasn't been driven by an agent.
 - Load an export in Tiled and paint with the terrain brush (spec acceptance step 10).
 - Decide the open questions above.
 - Hands-on pass with a real mouse/pen. Automated checks used synthetic events.

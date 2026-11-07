@@ -4,7 +4,7 @@ import type { Project } from "../model";
 import * as ops from "../ops";
 import { createPixels, setPixel } from "../pixels";
 import { encodePng } from "../png";
-import { deserializeProject, PROJECT_FILE, projectFolderName, serializeProject } from ".";
+import { deserializeProject, PROJECT_FILE, projectFolderName, projectNameFromFolder, serializeProject } from ".";
 
 function sample(): Project {
   let p = ops.createProject("My Game");
@@ -101,5 +101,13 @@ describe("project io", () => {
   it("names project folders", () => {
     expect(projectFolderName("My Game")).toBe("My Game.tilestudio");
     expect(projectFolderName("x.tilestudio")).toBe("x.tilestudio");
+  });
+
+  it("recovers the project name from a chosen folder name", () => {
+    expect(projectNameFromFolder("My Game.tilestudio")).toBe("My Game");
+    expect(projectNameFromFolder("My Game.TileStudio")).toBe("My Game");
+    expect(projectNameFromFolder("My Game.tilestudio.zip")).toBe("My Game");
+    expect(projectNameFromFolder("plain")).toBe("plain");
+    expect(projectNameFromFolder(projectFolderName("Round Trip"))).toBe("Round Trip");
   });
 });

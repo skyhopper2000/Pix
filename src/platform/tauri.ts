@@ -1,5 +1,6 @@
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { mkdir, readDir, readFile, remove, writeFile } from "@tauri-apps/plugin-fs";
+import { PROJECT_EXT } from "../core/project-io";
 import type { FileTree, OpenedFile, OpenedFolder, Platform, SaveTarget } from "./types";
 
 /**
@@ -71,12 +72,16 @@ export const tauriPlatform: Platform = {
     return { name: basename(path), files, target: new PathTarget(path) };
   },
 
-  async saveFolderAs(suggestedName, files) {
-    const parent = await open({ multiple: false, directory: true, title: "Choose where to save the project" });
-    if (typeof parent !== "string") return null;
-    const root = parent.endsWith(".tilestudio") ? parent : joinPath(parent, suggestedName);
-    await writeTree(root, files);
-    return new PathTarget(root);
+  async chooseFolderTarget(suggestedName) {
+    // A Save dialog (not a folder picker) so the user can type the project's name.
+    // The chosen path becomes the project folder itself.
+    const path = await save({
+      title: "Save project as",
+      defaultPath: suggestedName,
+      filters: [{ name: "Tile Studio project", extensions: [PROJECT_EXT.slice(1)] }],
+    });
+    if (!path) return null;
+    return new PathTarget(path.endsWith(PROJECT_EXT) ? path : path + PROJECT_EXT);
   },
 
   async saveFolderTo(target, files) {

@@ -37,8 +37,11 @@ export interface Platform {
   saveFileTo(target: SaveTarget, bytes: Uint8Array): Promise<void>;
   /** Ask for a project folder and read every file under it. */
   openFolder(): Promise<OpenedFolder | null>;
-  /** Ask for a folder to save a project into. */
-  saveFolderAs(suggestedName: string, files: FileTree): Promise<SaveTarget | null>;
+  /**
+   * Ask where to save a project folder (nothing is written yet; follow with saveFolderTo).
+   * The target's label is the chosen folder name, e.g. "My Game.tilestudio".
+   */
+  chooseFolderTarget(suggestedName: string): Promise<SaveTarget | null>;
   /** Replace the contents of a previously chosen folder with `files`. */
   saveFolderTo(target: SaveTarget, files: FileTree): Promise<void>;
 }
