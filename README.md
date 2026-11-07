@@ -1,16 +1,16 @@
-# Tile Studio
+# Pix
 
 > Working name. Free, open-source (GPL-3.0) Windows desktop app that turns hand-drawn or imported tiles into clean, **Tiled-ready** tilesets.
 
 **Create → organize → export.** Draw tiles (or slice them out of an old sheet or map rip), sort them into terrain sets and object groups, then export a `.zip` that [Tiled](https://www.mapeditor.org/) can use straight away, Wang/terrain sets included.
 
-Tile Studio is made for hobbyists and indie developers building 2D tile-based games, especially RPGs.
+Pix is made for hobbyists and indie developers building 2D tile-based games, especially RPGs.
 
 ## You draw every pixel
 
-Tile Studio never generates, alters, "fixes" or judges your art. It slices, sorts, names, previews, packs and exports. That's it.
+Pix never generates, alters, "fixes" or judges your art. It slices, sorts, names, previews, packs and exports. That's it.
 
-| Tile Studio will | Tile Studio won't |
+| Pix will | Pix won't |
 | --- | --- |
 | Slice an image into tiles | Generate autotiles for you |
 | Merge tiles that are *exactly* identical | Fill empty template slots |

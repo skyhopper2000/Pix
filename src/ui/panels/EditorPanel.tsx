@@ -8,6 +8,7 @@ import { activePreview, activeSubset, activeTileset, history, setStatus, ui, use
 import { editorBridge } from "../commands";
 import { drawChecker, fitCanvas, tileCanvas } from "../render";
 import { EmptyState, IconButton, NumberInput } from "../widgets";
+import { Icon, type IconName } from "../icons";
 
 /** Keeps receiving moves outside the canvas. Can throw for synthetic or already-released pointers; drawing still works without it. */
 function capturePointer(e: React.PointerEvent) {
@@ -18,16 +19,16 @@ function capturePointer(e: React.PointerEvent) {
   }
 }
 
-const TOOLS: { id: ToolId; label: string; key: string; icon: string }[] = [
-  { id: "pencil", label: "Pencil", key: "B", icon: "✎" },
-  { id: "eraser", label: "Eraser", key: "E", icon: "⌫" },
-  { id: "fill", label: "Fill", key: "G", icon: "◧" },
-  { id: "line", label: "Line", key: "L", icon: "╱" },
-  { id: "rect", label: "Rectangle", key: "U", icon: "▭" },
-  { id: "ellipse", label: "Ellipse / circle", key: "Shift+U", icon: "◯" },
-  { id: "shade", label: "Lighten (left) / darken (right)", key: "D", icon: "◐" },
-  { id: "select", label: "Selection + move", key: "M", icon: "⬚" },
-  { id: "picker", label: "Color picker", key: "I or Alt+click", icon: "⊙" },
+const TOOLS: { id: ToolId; label: string; key: string; icon: IconName }[] = [
+  { id: "pencil", label: "Pencil", key: "B", icon: "pen" },
+  { id: "eraser", label: "Eraser", key: "E", icon: "eraser" },
+  { id: "fill", label: "Fill", key: "G", icon: "fill" },
+  { id: "line", label: "Line", key: "L", icon: "line" },
+  { id: "rect", label: "Rectangle", key: "U", icon: "rect" },
+  { id: "ellipse", label: "Ellipse", key: "Shift+U", icon: "ellipse" },
+  { id: "shade", label: "Lighten (left-click) / Darken (right-click)", key: "D", icon: "shade" },
+  { id: "select", label: "Rectangular Select", key: "M", icon: "select" },
+  { id: "picker", label: "Color Selector", key: "I or Alt+click", icon: "picker" },
 ];
 
 interface Rect {
@@ -438,7 +439,7 @@ export function EditorPanel() {
       <div className="panel-toolbar">
         {TOOLS.map((t) => (
           <IconButton key={t.id} title={`${t.label} (${t.key})`} active={tool === t.id} onClick={() => ui.set({ tool: t.id })}>
-            {t.icon}
+            <Icon name={t.icon} />
           </IconButton>
         ))}
         <span className="sep-v" />

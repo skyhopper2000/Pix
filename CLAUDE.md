@@ -4,7 +4,7 @@ Guidance for AI agents working in this repo. Humans: see [README.md](README.md).
 
 ## What this is
 
-Tile Studio (working name) is a Windows desktop app (Tauri 2 + React + TypeScript, Canvas 2D) that slices, organizes and exports pixel-art tiles as Tiled-ready `.png` + `.tsx` sheets. v1 is **Tile mode only**. Sprite mode, animated tiles, non-Tiled export targets and macOS/Linux builds are v2: do not build them.
+Pix is a Windows desktop app (Tauri 2 + React + TypeScript, Canvas 2D) that slices, organizes and exports pixel-art tiles as Tiled-ready `.png` + `.tsx` sheets. v1 is **Tile mode only**. Sprite mode, animated tiles, non-Tiled export targets and macOS/Linux builds are v2: do not build them.
 
 ## The creed (hard rule, check every feature against it)
 
@@ -69,6 +69,7 @@ src/
   state/         central store, undo/redo history, UI (non-undoable) state
   platform/      file dialogs + disk I/O: `tauri.ts`, `web.ts`, chosen at runtime
   ui/            React components: layout, panels, canvases, dialogs, command palette
+    icons/         pixel-art UI icons (light_*/dark_* pairs + logo), drawn in Pix; see icons.tsx
 src-tauri/       Tauri 2 shell (Rust); only plugin wiring, no app logic
 ```
 
@@ -100,7 +101,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 
 | Question | Provisional choice |
 | --- | --- |
-| Product name | "Tile Studio" placeholder (repo is `Pix`) |
+| Product name | **Decided: "Pix"** (2026-11-07). The project folder extension stays `.tilestudio` and the `project.json` format id stays `tilestudio-project` so existing projects still open |
 | Isometric / hex in v1 | Stretch goal. Square only; the model stores `grid` and the import dialog shows iso/hex as disabled |
 | Project format | Folder (`*.tilestudio/` with `project.json` + `tiles/*.png`), as proposed. The browser fallback without File System Access saves the same tree as a `.zip` |
 | Default tile size | 16 px |
@@ -124,19 +125,19 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 8 | `step/08-subsets-previews` | Subset UI (slots, guides, terrains, drag-drop, draw-into-slot), map preview editor (paint/stamp/clear/highlight/grid/zoom/PNG export), subset previews | ready for review |
 | 9 | `step/09-dialogs` | Import dialog, near-duplicate review panel, export dialog, Export Again, palette import/export | ready for review |
 | 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | ready for review (Tiled check pending) |
-| 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog); import a palette from an image | in progress |
+| 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog); import a palette from an image; rename to Pix + pixel-art icons and logo | in progress |
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
 
 ## Waiting on a human
 
 - Review and merge `step/11-v1-adjustments` (steps 1–10 are merged into `main`).
-- Try *File › Save As…* in the desktop build: the native Save dialog hasn't been driven by an agent.
+- Try *File › Save As…* and *Import Palette…* in the desktop build: native dialogs haven't been driven by an agent. Check the new window/taskbar icon after `npm run tauri build`.
 - Load an export in Tiled and paint with the terrain brush (spec acceptance step 10).
 - Decide the open questions above.
 - Hands-on pass with a real mouse/pen. Automated checks used synthetic events.
 
 ## Dev tips
 
-- In `npm run dev`, `window.__tileStudio` exposes `{ history, ui, actions }` for inspection. Don't `import()` app modules from the console; Vite may hand you a second copy of the store.
+- In `npm run dev`, `window.__pix` exposes `{ history, ui, actions }` for inspection. Don't `import()` app modules from the console; Vite may hand you a second copy of the store.
 - Synthetic pointer events need `pointerId: 1` (the mouse), or `setPointerCapture` has nothing to capture.

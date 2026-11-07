@@ -78,7 +78,7 @@ export const tauriPlatform: Platform = {
     const path = await save({
       title: "Save project as",
       defaultPath: suggestedName,
-      filters: [{ name: "Tile Studio project", extensions: [PROJECT_EXT.slice(1)] }],
+      filters: [{ name: "Pix project", extensions: [PROJECT_EXT.slice(1)] }],
     });
     if (!path) return null;
     return new PathTarget(path.endsWith(PROJECT_EXT) ? path : path + PROJECT_EXT);

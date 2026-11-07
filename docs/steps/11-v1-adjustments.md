@@ -8,7 +8,7 @@ Small fixes found while using v1 after it was merged to `main`. Each fix gets it
 
 **Fix.**
 - `Platform.saveFolderAs(name, files)` is replaced by `chooseFolderTarget(name)`, which only asks where to save. The caller then writes with the existing `saveFolderTo`.
-- Tauri: `chooseFolderTarget` opens a native **Save** dialog pre-filled with `<project name>.tilestudio`, filtered to "Tile Studio project (*.tilestudio)". The chosen path becomes the project folder, and `.tilestudio` is appended if the user dropped it.
+- Tauri: `chooseFolderTarget` opens a native **Save** dialog pre-filled with `<project name>.tilestudio`, filtered to "Pix project (*.tilestudio)". The chosen path becomes the project folder, and `.tilestudio` is appended if the user dropped it.
 - `saveProject(true)`: if the typed name differs from the project's name, the project is renamed first (one undoable "Rename project" entry), so `project.json`, the window title and export names all match the folder.
 - Core: `projectNameFromFolder()` is the inverse of `projectFolderName()`.
 - Web: unchanged for users. The File System Access API has no named "save folder" dialog, so the browser build still picks a parent folder and uses the suggested name, or downloads a `.zip`.
@@ -38,3 +38,23 @@ Small fixes found while using v1 after it was merged to `main`. Each fix gets it
   - A 6-pixel strip (red, green, blue, red again, transparent, #112233) added exactly `ff0000 00ff00 0000ff 112233` in that order and created no tiles or tilesets.
   - A 300-colour image showed "Couldn't import the palette" with the limit message, and the palette was unchanged.
 - Not verified here: the native Tauri file dialog's filter list.
+
+## Rename to Pix, pixel-art icons and logo
+
+**Name.** "Tile Studio" is now **Pix** everywhere it's shown or documented: README, CLAUDE.md, the spec (product-name question closed), step docs, the window title, the installer's `productName`, the dialog filter label, error messages and the export manifest's `generator`. The npm package is `pix`, the crate is `pix` / `pix_lib`, the bundle identifier is `io.github.skyhopper2000.pix`, and the dev console hook is `window.__pix`.
+
+Deliberately unchanged, so existing data keeps working:
+- the `.tilestudio` project folder extension and the `tilestudio-project` format id in `project.json`;
+- `localStorage` keys (`tilestudio.theme`, `tilestudio.layout.v1`) and the internal drag MIME type.
+
+**Icons.** The 21 PNGs the user drew in Pix (`assets_export/tiles/`) are copied unchanged into `src/ui/icons/` under their exported names, so a re-export can be dropped in. `src/ui/icons.tsx` maps them: pen, eraser (`light_ers` / `bark_ers`), fill, line, rect, ellipse (`light_cir` / `dark_circ`), shade, rect select, picker, trash. `<Icon name>` picks `light_*` or `dark_*` from the current theme.
+- Replaced: the nine tile-editor tool buttons and the tile bar's delete button (🗑).
+- Left as text: glyphs with no matching asset (＋ − ⧉ ⇲ ◑, palette ✎ "edit colour", preview Stamp/Clear, tree icons), the menu-bar ▦ mark, and the preview's "✎ Draw" mode label.
+- The icons are 32×32 with 1-px strokes, so they're shown at native size (`image-rendering: pixelated`) rather than shrunk to the old ~16 px glyph size. `--icon-px` is set from `devicePixelRatio` so each icon pixel covers a whole number of device pixels (e.g. 25.6 CSS px at 125 % and 250 % scaling). Icon buttons grow to fit, and disabled ones fade.
+
+**Logo.** `logo.png` (32×32) was upscaled 32× nearest-neighbour to `src-tauri/icons/source.png` (1024²), then `npx tauri icon` regenerated `icon.ico`, the PNG sizes and `icon.icns`. The 32/64/128/256 sizes stay crisp; odd sizes such as 48 px in the .ico get resampled. The Android/iOS output was deleted (v1 is Windows-only). The web build uses the logo as its favicon.
+
+**Verified.**
+- `npm run typecheck`, `npm test` (85) and `npm run build` pass.
+- Browser build: the title reads "Untitled — Pix" and the favicon is the logo. All 10 icons load at 32 px natural size and switch between `dark_*` and `light_*` when the theme changes; checked with screenshots in both themes. At DPR 2.5 the icons are 25.6 CSS px = 64 device px (2 device px per icon pixel). No console errors after a clean reload.
+- Not verified here: the icon in an installed desktop build. Run `npm run tauri build` and check the window, taskbar and installer.

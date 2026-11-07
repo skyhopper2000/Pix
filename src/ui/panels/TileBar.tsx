@@ -5,6 +5,7 @@ import * as A from "../../state/actions";
 import { history, openTile, ui, useProject, useUi, activeTileset } from "../../state/app";
 import { TILE_DRAG_TYPE } from "../render";
 import { EmptyState, IconButton, TileThumb } from "../widgets";
+import { Icon } from "../icons";
 import { SubsetGrid } from "./SubsetGrid";
 
 /** Starts a drag carrying a tile id (dropped on subset slots, preview cells or the tile bar). */
@@ -118,7 +119,7 @@ export function TileBar() {
           ⧉
         </IconButton>
         <IconButton title="Delete tile everywhere (Del)" onClick={A.deleteActiveTile} disabled={!tileId}>
-          🗑
+          <Icon name="trash" />
         </IconButton>
       </div>
       <div className="panel-scroll">
