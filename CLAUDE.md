@@ -124,7 +124,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 8 | `step/08-subsets-previews` | Subset UI (slots, guides, terrains, drag-drop, draw-into-slot), map preview editor (paint/stamp/clear/highlight/grid/zoom/PNG export), subset previews | ready for review |
 | 9 | `step/09-dialogs` | Import dialog, near-duplicate review panel, export dialog, Export Again, palette import/export | ready for review |
 | 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | ready for review (Tiled check pending) |
-| 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog) | in progress |
+| 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog); import a palette from an image | in progress |
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
 

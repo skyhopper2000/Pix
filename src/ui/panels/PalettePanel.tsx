@@ -73,7 +73,7 @@ export function PalettePanel() {
           Locked
         </label>
         <span className="spacer" />
-        <IconButton title="Import palette (.gpl, .hex, .pal, Lospec .json)" onClick={() => void A.importPalette()}>
+        <IconButton title="Import palette (.gpl, .hex, .pal, Lospec .json, or the colours of an image)" onClick={() => void A.importPalette()}>
           ⤓
         </IconButton>
         <IconButton title="Export palette as .gpl" disabled={!colors.length} onClick={() => void A.exportPalette("gpl")}>
@@ -101,7 +101,7 @@ export function PalettePanel() {
             }}
           />
         ))}
-        {colors.length === 0 && <div className="hint">Empty palette. Add colours with ＋, import a palette file, or tick "Extract palette" when importing an image.</div>}
+        {colors.length === 0 && <div className="hint">Empty palette. Add colours with ＋, or use Import to load a palette file or the colours of an image (up to 256).</div>}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { pack, parseHex, toHex6, unpack } from "../color";
 import type { Color } from "../model";
+import { distinctColors } from "../pixels";
 
 /**
  * Palette file formats.
@@ -88,6 +89,32 @@ export function parseLospecJson(s: string): ParsedPalette {
     return v;
   });
   return { name: typeof j.name === "string" ? j.name : undefined, colors };
+}
+
+/** Most colours "Import Palette" takes from an image. More than this is almost certainly not a palette. */
+export const PALETTE_IMAGE_LIMIT = 256;
+
+/** Palette file extensions parsePaletteFile reads. */
+export const PALETTE_FILE_EXTENSIONS = ["gpl", "hex", "pal", "json", "txt"];
+
+/** Extensions the palette importer treats as images rather than palette files. */
+export const PALETTE_IMAGE_EXTENSIONS = ["png", "gif", "bmp", "jpg", "jpeg", "webp"];
+
+export const isPaletteImageFile = (fileName: string): boolean =>
+  PALETTE_IMAGE_EXTENSIONS.includes(fileName.toLowerCase().split(".").pop() ?? "");
+
+/**
+ * Reads an image's distinct colours as a palette, in reading order (left→right, top→bottom),
+ * so a swatch strip keeps its order. Fully transparent pixels are skipped. Colours are taken
+ * exactly as stored: nothing is averaged, quantized or merged. Throws if the image has more
+ * than `limit` colours rather than picking an arbitrary subset.
+ */
+export function paletteFromImage(img: { pixels: Uint8ClampedArray }, limit = PALETTE_IMAGE_LIMIT): ParsedPalette {
+  const colors = distinctColors(img.pixels, limit + 1);
+  if (colors.length > limit)
+    throw new Error(`The image has more than ${limit} colours, so it doesn't look like a palette. Use an image with ${limit} colours or fewer (e.g. a swatch strip).`);
+  if (colors.length === 0) throw new Error("The image has no visible colours (every pixel is transparent).");
+  return { colors };
 }
 
 /** Parses a palette file, choosing the format by extension and content. */

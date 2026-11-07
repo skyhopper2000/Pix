@@ -119,7 +119,7 @@ export const webPlatform: Platform = {
   kind: "web",
 
   async openFile(filters): Promise<OpenedFile | null> {
-    const exts = filters.flatMap((f) => f.extensions.map((x) => "." + x)).join(",");
+    const exts = [...new Set(filters.flatMap((f) => f.extensions.map((x) => "." + x)))].join(",");
     const file = await inputPick(exts);
     if (!file) return null;
     return { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
