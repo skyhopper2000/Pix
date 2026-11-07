@@ -47,8 +47,8 @@ Deliberately unchanged, so existing data keeps working:
 - the `.tilestudio` project folder extension and the `tilestudio-project` format id in `project.json`;
 - `localStorage` keys (`tilestudio.theme`, `tilestudio.layout.v1`) and the internal drag MIME type.
 
-**Icons.** The 21 PNGs the user drew in Pix (`assets_export/tiles/`) are copied unchanged into `src/ui/icons/` under their exported names, so a re-export can be dropped in. `src/ui/icons.tsx` maps them: pen, eraser (`light_ers` / `bark_ers`), fill, line, rect, ellipse (`light_cir` / `dark_circ`), shade, rect select, picker, trash. `<Icon name>` picks `light_*` or `dark_*` from the current theme.
-- Replaced: the nine tile-editor tool buttons and the tile bar's delete button (🗑).
+**Icons.** The 21 PNGs the user drew in Pix (`assets_export/tiles/`) are copied unchanged into `src/ui/icons/` under their exported names, so a re-export can be dropped in. `src/ui/icons.tsx` maps them: pen, eraser (`light_ers` / `bark_ers`), fill, line, rect, ellipse (`light_cir` / `dark_circ`), shade, rect select, picker. `<Icon name>` picks `light_*` or `dark_*` from the current theme.
+- Replaced: the nine tile-editor tool buttons. The tile bar's delete button was switched to the trash icon, then back to 🗑 at the user's request (2026-11-07); `light_trash` / `dark_trash` stay in `src/ui/icons/` unused for now.
 - Left as text: glyphs with no matching asset (＋ − ⧉ ⇲ ◑, palette ✎ "edit colour", preview Stamp/Clear, tree icons), the menu-bar ▦ mark, and the preview's "✎ Draw" mode label.
 - The icons are 32×32 with 1-px strokes, so they're shown at native size (`image-rendering: pixelated`) rather than shrunk to the old ~16 px glyph size. `--icon-px` is set from `devicePixelRatio` so each icon pixel covers a whole number of device pixels (e.g. 25.6 CSS px at 125 % and 250 % scaling). Icon buttons grow to fit, and disabled ones fade.
 
@@ -56,5 +56,5 @@ Deliberately unchanged, so existing data keeps working:
 
 **Verified.**
 - `npm run typecheck`, `npm test` (85) and `npm run build` pass.
-- Browser build: the title reads "Untitled — Pix" and the favicon is the logo. All 10 icons load at 32 px natural size and switch between `dark_*` and `light_*` when the theme changes; checked with screenshots in both themes. At DPR 2.5 the icons are 25.6 CSS px = 64 device px (2 device px per icon pixel). No console errors after a clean reload.
+- Browser build: the title reads "Untitled — Pix" and the favicon is the logo. All icons load at 32 px natural size and switch between `dark_*` and `light_*` when the theme changes; checked with screenshots in both themes. At DPR 2.5 the icons are 25.6 CSS px = 64 device px (2 device px per icon pixel). No console errors after a clean reload.
 - Not verified here: the icon in an installed desktop build. Run `npm run tauri build` and check the window, taskbar and installer.

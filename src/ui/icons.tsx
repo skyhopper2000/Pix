@@ -22,7 +22,6 @@ const ICONS = {
   shade: { light: "light_shade", dark: "dark_shade" },
   select: { light: "light_rec_select", dark: "dark_rec_select" },
   picker: { light: "light_pick", dark: "dark_pick" },
-  trash: { light: "light_trash", dark: "dark_trash" },
 } as const satisfies Record<string, { light: string; dark: string }>;
 
 export type IconName = keyof typeof ICONS;
