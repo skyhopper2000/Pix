@@ -1,7 +1,7 @@
 import type { Color, GridType, Id, Preview, Project, Tile, TileId, Tileset } from "../model";
-import { addPaletteColors, addPreview, addTile, createPreview, findTileset, mapTileset } from "../ops";
+import { addPaletteColors, addPreview, addTiles, createPreview, findTileset, mapTileset } from "../ops";
 import { newId } from "../ids";
-import { crop, diffFraction, distinctColors, hashPixels, isEmptyTile, pixelsEqual } from "../pixels";
+import { crop, diffFraction, distinctColors, hashPixels, hashRegion, isEmptyRegion, regionEquals } from "../pixels";
 import type { RgbaImage } from "../png";
 
 /**
@@ -73,48 +73,120 @@ export interface ImportResult {
 
 export const PALETTE_EXTRACT_LIMIT = 1024;
 
-/** Slices `img` into tiles for tileset `ts`. Pure: returns what to add; see applyImport. */
-export function sliceImage(img: RgbaImage, ts: Tileset, s: ImportSettings, previewName: string): ImportResult {
+type Geometry = Pick<ImportSettings, "tileWidth" | "tileHeight" | "offsetX" | "offsetY" | "spacingX" | "spacingY">;
+
+/**
+ * Per-cell facts that depend only on the image and the grid geometry, so the
+ * import dialog can reuse them while the user toggles the other options.
+ */
+export interface CellScan {
+  /** The geometry this scan was made for (see scanMatches). */
+  geometry: Geometry;
+  cols: number;
+  rows: number;
+  /** hashPixels of each cell, row-major. */
+  hashes: Uint32Array;
+  /** 1 where the cell is empty (isEmptyTile). */
+  empty: Uint8Array;
+}
+
+/** Hashes every cell in place (no per-cell copies). O(image pixels) time, O(cells) memory. */
+export function scanCells(img: RgbaImage, s: Geometry): CellScan {
   const { cols, rows } = gridDims(img.width, img.height, s);
-  const tw = s.tileWidth;
-  const th = s.tileHeight;
-  // Exact-match index: hash -> tiles with that hash (existing tiles first, for re-import).
-  const index = new Map<number, Tile[]>();
-  const remember = (t: Tile) => {
+  const { tileWidth: tw, tileHeight: th } = s;
+  const hashes = new Uint32Array(cols * rows);
+  const empty = new Uint8Array(cols * rows);
+  for (let r = 0, i = 0; r < rows; r++) {
+    const y = s.offsetY + r * (th + s.spacingY);
+    for (let c = 0; c < cols; c++, i++) {
+      const x = s.offsetX + c * (tw + s.spacingX);
+      hashes[i] = hashRegion(img.pixels, img.width, x, y, tw, th);
+      empty[i] = isEmptyRegion(img.pixels, img.width, x, y, tw, th) ? 1 : 0;
+    }
+  }
+  const { tileWidth, tileHeight, offsetX, offsetY, spacingX, spacingY } = s;
+  return { geometry: { tileWidth, tileHeight, offsetX, offsetY, spacingX, spacingY }, cols, rows, hashes, empty };
+}
+
+export function scanMatches(scan: CellScan, s: Geometry): boolean {
+  const g = scan.geometry;
+  return g.tileWidth === s.tileWidth && g.tileHeight === s.tileHeight && g.offsetX === s.offsetX && g.offsetY === s.offsetY && g.spacingX === s.spacingX && g.spacingY === s.spacingY;
+}
+
+/** Exact-match index of a tileset's tiles: hash -> tiles with that hash, in tile order. */
+export type TileIndex = Map<number, Tile[]>;
+
+export function indexTiles(ts: Pick<Tileset, "tileOrder" | "tiles">): TileIndex {
+  const index: TileIndex = new Map();
+  for (const id of ts.tileOrder) {
+    const t = ts.tiles[id];
     const h = hashPixels(t.pixels);
     const list = index.get(h);
     if (list) list.push(t);
     else index.set(h, [t]);
-  };
-  if (s.isolateUnique) for (const id of ts.tileOrder) remember(ts.tiles[id]);
+  }
+  return index;
+}
+
+/** Work that can be computed once and reused across slices of the same image. */
+export interface SliceCache {
+  /** Used only if it matches the settings' geometry. */
+  scan?: CellScan;
+  /** indexTiles(ts), for re-import dedupe. Not mutated. */
+  index?: TileIndex;
+  /** distinctColors(img.pixels, PALETTE_EXTRACT_LIMIT). */
+  colors?: Color[];
+}
+
+/**
+ * Slices `img` into tiles for tileset `ts`. Pure: returns what to add; see applyImport.
+ * Cells are hashed and compared in place; only cells that become new tiles are copied.
+ * Time O(image pixels + existing tile pixels), extra memory O(cells + new tile pixels).
+ */
+export function sliceImage(img: RgbaImage, ts: Tileset | Pick<Tileset, "tileOrder" | "tiles">, s: ImportSettings, previewName: string, cache: SliceCache = {}): ImportResult {
+  const scan = cache.scan && scanMatches(cache.scan, s) ? cache.scan : scanCells(img, s);
+  const { cols, rows, hashes, empty } = scan;
+  const tw = s.tileWidth;
+  const th = s.tileHeight;
+  // Exact-match index (existing tiles first, for re-import). New tiles go in `added`
+  // so a cached index of the existing tiles is never mutated.
+  const index = s.isolateUnique ? (cache.index ?? indexTiles(ts)) : new Map<number, Tile[]>();
+  const added = new Map<number, Tile[]>();
   const existing = new Set(ts.tileOrder);
 
   const newTiles: Tile[] = [];
   const cells: (TileId | null)[] = new Array(cols * rows).fill(null);
   let reused = 0;
   let skippedEmpty = 0;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const px = crop(img.pixels, img.width, img.height, s.offsetX + c * (tw + s.spacingX), s.offsetY + r * (th + s.spacingY), tw, th);
-      if (!s.includeEmpty && isEmptyTile(px)) {
+  for (let r = 0, i = 0; r < rows; r++) {
+    const y = s.offsetY + r * (th + s.spacingY);
+    for (let c = 0; c < cols; c++, i++) {
+      if (!s.includeEmpty && empty[i]) {
         skippedEmpty++;
         continue;
       }
+      const x = s.offsetX + c * (tw + s.spacingX);
+      const h = hashes[i];
       if (s.isolateUnique) {
-        const match = index.get(hashPixels(px))?.find((t) => pixelsEqual(t.pixels, px));
+        const same = (t: Tile) => regionEquals(img.pixels, img.width, x, y, tw, th, t.pixels);
+        const match = index.get(h)?.find(same) ?? added.get(h)?.find(same);
         if (match) {
-          cells[r * cols + c] = match.id;
+          cells[i] = match.id;
           if (existing.has(match.id)) reused++;
           continue;
         }
       }
-      const tile: Tile = { id: newId(), name: `tile${r}_${c}`, pixels: px };
+      const tile: Tile = { id: newId(), name: `tile${r}_${c}`, pixels: crop(img.pixels, img.width, img.height, x, y, tw, th) };
       newTiles.push(tile);
-      if (s.isolateUnique) remember(tile);
-      cells[r * cols + c] = tile.id;
+      if (s.isolateUnique) {
+        const list = added.get(h);
+        if (list) list.push(tile);
+        else added.set(h, [tile]);
+      }
+      cells[i] = tile.id;
     }
   }
-  const colors = s.extractPalette ? distinctColors(img.pixels, PALETTE_EXTRACT_LIMIT) : [];
+  const colors = s.extractPalette ? (cache.colors ?? distinctColors(img.pixels, PALETTE_EXTRACT_LIMIT)) : [];
   return {
     newTiles,
     preview: createPreview(previewName, cols, rows, cells),
@@ -130,7 +202,7 @@ export function applyImport(p: Project, tsId: Id, result: ImportResult, s: Pick<
   let next = p;
   if (ts.tileOrder.length === 0 && (ts.tileWidth !== s.tileWidth || ts.tileHeight !== s.tileHeight))
     next = mapTileset(next, tsId, (t) => ({ ...t, tileWidth: s.tileWidth, tileHeight: s.tileHeight }));
-  for (const t of result.newTiles) next = addTile(next, tsId, t);
+  next = addTiles(next, tsId, result.newTiles);
   next = addPreview(next, tsId, result.preview);
   if (result.colors.length) next = addPaletteColors(next, result.colors);
   return next;

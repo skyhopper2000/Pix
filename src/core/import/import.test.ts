@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { pack } from "../color";
 import type { Project, Tileset } from "../model";
 import * as ops from "../ops";
-import { blit, createPixels, getPixel, setPixel } from "../pixels";
+import { blit, createPixels, crop, getPixel, isEmptyTile, pixelsEqual, setPixel } from "../pixels";
 import type { RgbaImage } from "../png";
-import { applyImport, defaultImportSettings, findNearDuplicates, gridDims, previewNameFromFile, sliceImage, validateImport } from ".";
+import { applyImport, defaultImportSettings, findNearDuplicates, gridDims, indexTiles, previewNameFromFile, scanCells, scanMatches, sliceImage, validateImport } from ".";
 
 const R = pack(255, 0, 0);
 const G = pack(0, 255, 0);
@@ -148,5 +148,80 @@ describe("import", () => {
 
   it("names previews after the file", () => {
     expect(previewNameFromFile("C:\\maps\\Map Rip.png")).toBe("Map Rip");
+  });
+
+  it("matches a naive crop-every-cell slicer on a random sheet", () => {
+    // 3×3-pixel tiles from a small pool, some transparent with random RGB, some solid.
+    let seed = 11;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) >> 8;
+    const pool = Array.from({ length: 6 }, (_, k) => {
+      const px = createPixels(3, 3);
+      for (let i = 0; i < 9; i++) {
+        const opaque = k === 5 ? true : rnd() % 3 !== 0;
+        px[i * 4] = k === 5 ? 9 : rnd() & 255;
+        px[i * 4 + 1] = k === 5 ? 9 : (rnd() & 1) * 200;
+        px[i * 4 + 2] = k === 5 ? 9 : 0;
+        px[i * 4 + 3] = opaque ? 255 : 0;
+      }
+      return px;
+    });
+    const cols = 9, rows = 7, off = 1, gap = 1;
+    const width = off + cols * 4, height = off + rows * 4;
+    const img = { width, height, pixels: createPixels(width, height) };
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++) {
+        const t = pool[rnd() % pool.length].slice();
+        // Same look, different RGB under alpha 0: must still dedupe.
+        for (let i = 0; i < 9; i++) if (t[i * 4 + 3] === 0) t[i * 4] = rnd() & 255;
+        blit(img.pixels, width, height, t, 3, 3, off + c * 4, off + r * 4);
+      }
+    const ts = ops.createTileset("t", 3, 3);
+    const existing = ops.createTile(ts, "old", pool[2].slice());
+    const tsWith = ops.findTileset(ops.addTile(ops.addTileset(ops.createProject(), ts), ts.id, existing), ts.id)!;
+    for (const isolateUnique of [true, false])
+      for (const includeEmpty of [true, false]) {
+        const s = { ...defaultImportSettings(ts), tileWidth: 3, tileHeight: 3, offsetX: off, offsetY: off, spacingX: gap, spacingY: gap, isolateUnique, includeEmpty };
+        const got = sliceImage(img, tsWith, s, "x");
+        // Naive reference: crop every cell, linear search for an equal tile.
+        const known = isolateUnique ? [existing] : [];
+        const want: (string | null)[] = [];
+        const names: string[] = [];
+        for (let r = 0; r < rows; r++)
+          for (let c = 0; c < cols; c++) {
+            const px = crop(img.pixels, width, height, off + c * 4, off + r * 4, 3, 3);
+            if (!includeEmpty && isEmptyTile(px)) {
+              want.push(null);
+              continue;
+            }
+            const m = isolateUnique ? known.find((t) => pixelsEqual(t.pixels, px)) : undefined;
+            if (m) want.push(m.name);
+            else {
+              const t = ops.createTile(ts, `tile${r}_${c}`, px);
+              known.push(t);
+              names.push(t.name);
+              want.push(t.name);
+            }
+          }
+        const byId = new Map([existing, ...got.newTiles].map((t) => [t.id, t.name]));
+        expect(got.preview.cells.map((id) => (id ? byId.get(id) : null))).toEqual(want);
+        expect(got.newTiles.map((t) => t.name)).toEqual(names);
+        expect(got.newTiles.every((t) => pixelsEqual(t.pixels, crop(img.pixels, width, height, off + Number(t.name.split("_")[1]) * 4, off + Number(t.name.slice(4).split("_")[0]) * 4, 3, 3)))).toBe(true);
+      }
+  });
+
+  it("reuses a cached scan, index and colours, and ignores a scan for other geometry", () => {
+    const { ts } = fresh();
+    const img = sheet([
+      [tile(R), tile(G)],
+      [tile(G), tile(B)],
+    ]);
+    const s = { ...defaultImportSettings(ts), extractPalette: true };
+    const plain = sliceImage(img, ts, s, "a");
+    const cached = sliceImage(img, ts, s, "a", { scan: scanCells(img, s), index: indexTiles(ts), colors: plain.colors });
+    expect(cached.stats).toEqual(plain.stats);
+    expect(cached.colors).toEqual(plain.colors);
+    const wrongScan = scanCells(img, { ...s, tileWidth: 1, tileHeight: 1 });
+    expect(scanMatches(wrongScan, s)).toBe(false);
+    expect(sliceImage(img, ts, s, "a", { scan: wrongScan }).stats).toEqual(plain.stats);
   });
 });

@@ -35,17 +35,108 @@ export function pixelsEqual(a: Uint8ClampedArray, b: Uint8ClampedArray): boolean
   return true;
 }
 
-/** FNV-1a hash consistent with pixelsEqual (transparent pixels hash the same). */
+// ---------- whole-pixel (32-bit) access ----------
+//
+// A pixel's key is r | g<<8 | b<<16 | a<<24, i.e. what a Uint32Array view reads
+// on a little-endian machine. Fully transparent pixels get key 0 so they hash
+// and compare equal whatever their RGB (the pixelsEqual rule). On aligned
+// buffers we read one word per pixel instead of four bytes.
+
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+
+/** A Uint32 view of an RGBA buffer (one word per pixel), or null when that isn't possible. */
+function words(a: Uint8ClampedArray): Uint32Array | null {
+  return LITTLE_ENDIAN && a.byteOffset % 4 === 0 && a.length % 4 === 0 ? new Uint32Array(a.buffer, a.byteOffset, a.length >> 2) : null;
+}
+
+/** Normalized key of pixel `p` (pixel index, not byte index). */
+function keyAt(a: Uint8ClampedArray, w: Uint32Array | null, p: number): number {
+  if (w) {
+    const v = w[p];
+    return v >>> 24 === 0 ? 0 : v;
+  }
+  const i = p * 4;
+  return a[i + 3] === 0 ? 0 : (a[i] | (a[i + 1] << 8) | (a[i + 2] << 16) | (a[i + 3] << 24)) >>> 0;
+}
+
+const C1 = 0xcc9e2d51;
+const C2 = 0x1b873593;
+
+/** One MurmurHash3 round: mixes pixel key `k` into hash `h`. */
+function mix(h: number, k: number): number {
+  k = Math.imul(k, C1);
+  k = (k << 15) | (k >>> 17);
+  h ^= Math.imul(k, C2);
+  h = (h << 13) | (h >>> 19);
+  return (Math.imul(h, 5) + 0xe6546b64) | 0;
+}
+
+function finish(h: number, n: number): number {
+  h ^= n;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+/** Hash consistent with pixelsEqual (transparent pixels hash the same). */
 export function hashPixels(a: Uint8ClampedArray): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < a.length; i += 4) {
-    const t = a[i + 3] === 0;
-    for (let k = 0; k < 4; k++) {
-      h ^= t ? 0 : a[i + k];
-      h = Math.imul(h, 0x01000193);
+  const w = words(a);
+  const n = a.length >> 2;
+  let h = 0;
+  for (let p = 0; p < n; p++) h = mix(h, keyAt(a, w, p));
+  return finish(h, n);
+}
+
+/**
+ * hashPixels of the w×h region at (x, y) of `src` (srcW pixels wide), read in
+ * place: hashRegion(src, …) === hashPixels(crop(src, …)). The region must lie
+ * inside the image.
+ */
+export function hashRegion(src: Uint8ClampedArray, srcW: number, x: number, y: number, w: number, h: number): number {
+  const v = words(src);
+  let hash = 0;
+  for (let r = 0; r < h; r++) {
+    const row = (y + r) * srcW + x;
+    for (let c = 0; c < w; c++) hash = mix(hash, keyAt(src, v, row + c));
+  }
+  return finish(hash, w * h);
+}
+
+/** pixelsEqual(crop(src, …), tile) without the crop. The region must lie inside the image. */
+export function regionEquals(src: Uint8ClampedArray, srcW: number, x: number, y: number, w: number, h: number, tile: Uint8ClampedArray): boolean {
+  if (tile.length !== w * h * 4) return false;
+  const vs = words(src);
+  const vt = words(tile);
+  let p = 0;
+  for (let r = 0; r < h; r++) {
+    const row = (y + r) * srcW + x;
+    for (let c = 0; c < w; c++, p++) if (keyAt(src, vs, row + c) !== keyAt(tile, vt, p)) return false;
+  }
+  return true;
+}
+
+/** isEmptyTile(crop(src, …)) without the crop. The region must lie inside the image. */
+export function isEmptyRegion(src: Uint8ClampedArray, srcW: number, x: number, y: number, w: number, h: number): boolean {
+  if (w <= 0 || h <= 0) return true;
+  const v = words(src);
+  // Raw (un-normalized) pixel value, so "single colour" compares all four bytes like isEmptyTile.
+  const raw = (p: number) => (v ? v[p] : (src[p * 4] | (src[p * 4 + 1] << 8) | (src[p * 4 + 2] << 16) | (src[p * 4 + 3] << 24)) >>> 0);
+  const first = raw(y * srcW + x);
+  let transparent = true;
+  let solid = true;
+  for (let r = 0; r < h && (transparent || solid); r++) {
+    const row = (y + r) * srcW + x;
+    for (let c = 0; c < w; c++) {
+      const px = raw(row + c);
+      if (px >>> 24 !== 0) transparent = false;
+      if (px !== first) solid = false;
+      if (!transparent && !solid) return false;
     }
   }
-  return h >>> 0;
+  return true;
 }
 
 /** Fraction (0..1) of pixels that differ, using the same transparency rule as pixelsEqual. */
@@ -78,6 +169,14 @@ export function isEmptyTile(a: Uint8ClampedArray): boolean {
 /** Copies a w x h region from src (srcW wide) at (sx, sy). Out-of-bounds pixels are transparent. */
 export function crop(src: Uint8ClampedArray, srcW: number, srcH: number, sx: number, sy: number, w: number, h: number): Uint8ClampedArray {
   const out = createPixels(w, h);
+  if (sx >= 0 && sy >= 0 && sx + w <= srcW && sy + h <= srcH) {
+    // Fully inside (always true when slicing): copy whole rows.
+    for (let y = 0; y < h; y++) {
+      const si = ((sy + y) * srcW + sx) * 4;
+      out.set(src.subarray(si, si + w * 4), y * w * 4);
+    }
+    return out;
+  }
   for (let y = 0; y < h; y++) {
     const yy = sy + y;
     if (yy < 0 || yy >= srcH) continue;
