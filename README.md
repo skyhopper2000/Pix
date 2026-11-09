@@ -28,7 +28,8 @@ Pix never generates, alters, "fixes" or judges your art. It slices, sorts, names
 - **Subsets.** Organize tiles into typed sets, each exported as its own Tiled sheet:
   - *Unstructured*: free arrangement (buildings, props, multi-tile objects).
   - *47 blob*, *16 corner*, *16 edge*: terrain transitions between two named terrains, exported as Tiled Wang sets.
-  - *Custom template*: your own slot grid with Wang bits per slot.
+  - *Custom template*: your own slot grid (up to 64 slots) with Wang bits per slot. Grow the grid with the +/− buttons and click cells to add slots; *Tileset › Edit Custom Template…* changes it later.
+  - **Fill slot by slot.** After *Create*, a wizard walks the slots: click a parent tile to put it in the current slot, skip any slot, or click any slot to go back to it. Reopen it any time with *Tileset › Fill Subset from Parent…*. Dragging tiles in still works.
 - **Map preview.** A lightweight grid for seeing tiles in context: stamp, clear, highlight every use of a tile, and export as PNG at any integer scale. It is deliberately **not** a level editor. Use Tiled for that.
 - **Palette.** Free RGBA or palette-locked. Import `.gpl`, `.hex`, `.pal` and Lospec palettes, or take the colours straight from an image (`.png`, `.gif`, `.bmp`, …, up to 256 colours) without importing its tiles; export `.gpl` and `.hex`.
 - **Export.** One `.zip` containing a PNG + `.tsx` per sheet, preview images and the palette. Options: scale (1×–4×), columns, padding, spacing, extrusion (anti-seam), per-tile PNGs. **Export Again** (`Ctrl+Shift+E`) repeats the last export.
@@ -56,7 +57,7 @@ In Tiled, add the `.tsx` files to a map and the terrain brush works with no setu
 2. **File → Import Image.** Pick a map rip, set the tile size, tick *Isolate unique tiles*. Tiles appear as `tile0_0`, `tile0_1`, … and the rip is rebuilt as a map preview.
 3. **Redraw** tiles in your own style and watch the map update live.
 4. **New Subset → Unstructured** ("buildings"): drag tiles in and arrange them.
-5. **New Subset → 47 blob** ("grass_dirt"): name the terrains, drag in the tiles you have, draw the missing slots.
+5. **New Subset → 47 blob** ("grass_dirt"): name the terrains, click through the slots filling the ones you have from the parent, then draw the missing slots.
 6. **File → Export Project** and load the `.tsx` files in Tiled.
 
 ## Keyboard shortcuts

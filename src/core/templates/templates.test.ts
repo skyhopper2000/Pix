@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Terrain } from "../model";
-import { BLOB47, BLOB47_MASKS, CORNER16, EDGE16, reduceBlobMask, slotDirs, slotName, validateTemplate } from ".";
+import { BLOB47, MAX_TEMPLATE_SLOTS, BLOB47_MASKS, CORNER16, EDGE16, reduceBlobMask, slotDirs, slotName, validateTemplate } from ".";
 
 describe("templates", () => {
   it("has exactly 47 blob masks including empty and full", () => {
@@ -37,5 +37,12 @@ describe("templates", () => {
   it("rejects bad custom templates", () => {
     const errs = validateTemplate({ wangType: "corner", cols: 1, rows: 1, slots: [{ col: 0, row: 0, wangId: [2, 0, 0, 0, 0, 0, 0, 0] }] });
     expect(errs.length).toBe(1);
+  });
+
+  it("caps custom templates at 64 slots", () => {
+    const mk = (n: number) => ({ wangType: "corner" as const, cols: 16, rows: 16, slots: Array.from({ length: n }, (_, i) => ({ col: i % 16, row: Math.floor(i / 16), wangId: [0, 1, 0, 1, 0, 1, 0, 1] })) });
+    expect(MAX_TEMPLATE_SLOTS).toBe(64);
+    expect(validateTemplate(mk(64))).toEqual([]);
+    expect(validateTemplate(mk(65)).join()).toMatch(/at most 64/);
   });
 });

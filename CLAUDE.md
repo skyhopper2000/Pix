@@ -130,6 +130,8 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog); import a palette from an image; rename to Pix + pixel-art icons and logo | merged (skyhopper2000/Pix#3) |
 | 12 | `step/12-large-image-import` (from `main`) | Large-image import: streaming PNG decode, in-place cell hashing, batched tile insert, decode/slice in a Web Worker | merged (skyhopper2000/Pix#2; worker not yet run in the Tauri build) |
 | 13 | `step/13-drag-and-drop` (from `main`) | Drag-and-drop in the desktop build: disable Tauri's webview drag-drop handler so HTML5 DnD (subset slots, panel tabs) works on Windows; block OS file drops from navigating the webview; repair the step 11/12 merge imports | ready for review (real mouse drag in the desktop window not agent-verified) |
+| 14 | `step/14-subset-wizard` (from `main`) | Fill Subset wizard (click a parent tile per slot, skip, go back), clearer custom template editor (+/− grid, slot count, Fill grid, 64-slot cap), Edit Custom Template for existing subsets | ready for review (cherry-picks the step 13 import repair) |
+
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
 
@@ -142,6 +144,8 @@ Keep this table current: `planned` → `in progress` → `ready for review` (or 
 - Hands-on pass with a real mouse/pen. Automated checks used synthetic events.
 - Steps 11 and 12 are merged; the merge left broken imports in `importClient.ts` / `ImportDialog.tsx`, fixed on `step/13-drag-and-drop`. Import a large PNG in the desktop app to check the worker in WebView2.
 - Step 13: in the desktop app, drag a tile into a subset slot, between slots, and drag a panel tab to another dock spot.
+- Step 14 was branched from `main` and cherry-picks `c9b71fa` (import repair) from step 13. Merging both touches this file's build-plan table; keep both rows.
+
 
 ## Dev tips
 

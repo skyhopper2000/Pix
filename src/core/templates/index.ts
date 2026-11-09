@@ -94,10 +94,14 @@ export function slotName(terrains: [Terrain, Terrain], wangId: number[]): string
   return `${sanitize(terrains[0].name)}_${sanitize(terrains[1].name)}_${slotDirs(wangId)}`;
 }
 
+/** Most slots a custom template may have (keeps the editor and the fill wizard usable). */
+export const MAX_TEMPLATE_SLOTS = 64;
+
 /** Validates a user-defined template; returns a list of problems (empty = valid). */
 export function validateTemplate(t: Template): string[] {
   const errs: string[] = [];
   if (t.cols < 1 || t.rows < 1) errs.push("Grid must be at least 1×1.");
+  if (t.slots.length > MAX_TEMPLATE_SLOTS) errs.push(`A template can have at most ${MAX_TEMPLATE_SLOTS} slots (this one has ${t.slots.length}).`);
   const seen = new Set<string>();
   for (const [i, s] of t.slots.entries()) {
     if (s.col < 0 || s.row < 0 || s.col >= t.cols || s.row >= t.rows) errs.push(`Slot ${i + 1} is outside the grid.`);

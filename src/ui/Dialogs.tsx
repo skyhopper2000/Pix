@@ -6,6 +6,7 @@ import * as A from "../state/actions";
 import { activeTileset, history, ui, useUi, type Dialog } from "../state/app";
 import { CustomTemplateEditor } from "./CustomTemplateEditor";
 import { ExportDialog } from "./dialogs/ExportDialog";
+import { FillSubsetDialog } from "./dialogs/FillSubsetDialog";
 import { ImportDialog } from "./dialogs/ImportDialog";
 import { NearDupDialog } from "./dialogs/NearDupDialog";
 import { Field, Modal, NumberInput } from "./widgets";
@@ -101,6 +102,8 @@ function NewSubset() {
   const [rows, setRows] = useState(4);
   const [template, setTemplate] = useState<Template | null>(null);
   const [templateValid, setTemplateValid] = useState(false);
+  const [fillAfter, setFillAfter] = useState(true);
+  const parentCount = activeTileset()?.tileOrder.length ?? 0;
   const templated = type !== "unstructured";
   const defaultName = templated ? `${terrains[0].name}_${terrains[1].name}` : "objects";
   const valid = cols >= 1 && rows >= 1 && (type !== "custom" || (template && templateValid));
@@ -108,12 +111,20 @@ function NewSubset() {
     const ts = activeTileset();
     if (!ts || !valid) return;
     const sub = ops.createSubset(name.trim() || defaultName, type, { terrains, cols, rows, template: template ?? undefined });
-    close();
     history.dispatch("New subset", (p) => ops.addSubset(p, ts.id, sub));
-    ui.set({ subsetId: sub.id, slotIndex: null, previewId: sub.preview.id, previewCell: null });
+    // Go straight on to filling it from the parent, when there is anything to fill it with.
+    ui.set({ subsetId: sub.id, slotIndex: null, previewId: sub.preview.id, previewCell: null, dialog: fillAfter && ts.tileOrder.length > 0 ? { kind: "fillSubset", subsetId: sub.id } : null });
   };
   return (
-    <Modal title="New Subset" onClose={close} width={type === "custom" ? 640 : 460} footer={<Buttons ok={ok} okLabel="Create" disabled={!valid} />}>
+    <Modal title="New Subset" onClose={close} width={type === "custom" ? 640 : 460} footer={
+        <>
+          <label className="radio footer-check" title={parentCount ? "After Create, walk through the slots and click a parent tile for each one" : "The parent has no tiles yet"}>
+            <input type="checkbox" checked={fillAfter && parentCount > 0} disabled={parentCount === 0} onChange={(e) => setFillAfter(e.target.checked)} /> Fill from parent tiles next
+          </label>
+          <span className="spacer" />
+          <Buttons ok={ok} okLabel={fillAfter && parentCount > 0 ? "Create and fill…" : "Create"} disabled={!valid} />
+        </>
+      }>
       <Field label="Type">
         <span className="radio-list">
           {SUBSET_TYPES.map((t) => (
@@ -143,6 +154,37 @@ function NewSubset() {
           }}
         />
       )}
+    </Modal>
+  );
+}
+
+function EditTemplate({ d }: { d: Extract<Dialog, { kind: "editTemplate" }> }) {
+  const ts = activeTileset();
+  const sub = ts?.subsets.find((s) => s.id === d.subsetId);
+  const [template, setTemplate] = useState<Template | null>(sub?.template ?? null);
+  const [valid, setValid] = useState(true);
+  if (!ts || !sub || sub.type !== "custom" || !sub.template) return null;
+  const old = sub.template;
+  const kept = new Set((template?.slots ?? []).map((s) => `${s.col},${s.row}`));
+  const dropped = old.slots.filter((s, i) => sub.cells[i] && !kept.has(`${s.col},${s.row}`)).length;
+  const ok = () => {
+    if (!template || !valid) return;
+    close();
+    history.dispatch(`Edit template of "${sub.name}"`, (p) => ops.setSubsetTemplate(p, ts.id, sub.id, template));
+    ui.set({ slotIndex: null });
+  };
+  return (
+    <Modal title={`Template of "${sub.name}"`} onClose={close} width={640} footer={<Buttons ok={ok} okLabel="Save" disabled={!valid} />}>
+      <p className="hint">Tiles stay on the slot at the same grid position. Removing a slot only takes its tile out of this subset; the tile stays in the parent. You can undo.</p>
+      <CustomTemplateEditor
+        terrains={sub.terrains}
+        initial={old}
+        onChange={(t, v) => {
+          setTemplate(t);
+          setValid(v);
+        }}
+      />
+      {dropped > 0 && <p className="warn">{dropped} filled slot{dropped > 1 ? "s" : ""} will be removed from this subset.</p>}
     </Modal>
   );
 }
@@ -222,6 +264,10 @@ export function Dialogs() {
       return <Resize d={d} />;
     case "terrains":
       return <Terrains d={d} />;
+    case "fillSubset":
+      return <FillSubsetDialog subsetId={d.subsetId} start={d.start} />;
+    case "editTemplate":
+      return <EditTemplate d={d} />;
     case "import":
       return <ImportDialog fileName={d.fileName} bytes={d.bytes} />;
     case "export":

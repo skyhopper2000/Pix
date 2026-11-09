@@ -102,6 +102,26 @@ export const commands: Command[] = [
   { id: "ts.newPreview", label: "New Preview…", menu: "Tileset", run: () => ui.set({ dialog: { kind: "newPreview" } }), enabled: hasTileset },
   { id: "ts.nearDup", label: "Review Near-Duplicates…", menu: "Tileset", run: () => ui.set({ dialog: { kind: "nearDup" } }), enabled: () => (activeTileset()?.tileOrder.length ?? 0) > 1, sep: true },
   {
+    id: "ts.fillSubset",
+    label: "Fill Subset from Parent…",
+    menu: "Tileset",
+    enabled: () => !!activeSubset() && (activeTileset()?.tileOrder.length ?? 0) > 0,
+    run: () => {
+      const s = activeSubset();
+      if (s) ui.set({ dialog: { kind: "fillSubset", subsetId: s.id, start: ui.get().slotIndex ?? undefined } });
+    },
+  },
+  {
+    id: "ts.editTemplate",
+    label: "Edit Custom Template…",
+    menu: "Tileset",
+    enabled: () => activeSubset()?.type === "custom",
+    run: () => {
+      const s = activeSubset();
+      if (s) ui.set({ dialog: { kind: "editTemplate", subsetId: s.id } });
+    },
+  },
+  {
     id: "ts.terrains",
     label: "Edit Subset Terrains…",
     menu: "Tileset",

@@ -758,3 +758,105 @@ input[type="color"] {
   gap: 8px;
   margin-top: 6px;
 }
+
+/* ---------- fill subset wizard ---------- */
+.fill-body {
+  display: grid;
+  grid-template-columns: auto 220px minmax(240px, 1fr);
+  gap: 16px;
+  align-items: start;
+  min-height: 360px;
+}
+.fill-left .subset-grid {
+  padding: 4px 0;
+}
+.fill-current {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fill-big {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fill-big-empty {
+  width: 96px;
+  height: 96px;
+  border: 1px dashed var(--fg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-muted);
+}
+.fill-arrow {
+  color: var(--fg-muted);
+}
+.fill-label {
+  font-weight: 600;
+  word-break: break-all;
+}
+.fill-done {
+  color: var(--focus);
+  font-weight: 600;
+}
+.fill-right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.fill-right-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fill-right-head input {
+  flex: 1;
+  min-width: 0;
+}
+.fill-tiles {
+  max-height: 52vh;
+  overflow: auto;
+  padding: 6px 0;
+}
+.tile-cell.used {
+  opacity: 0.55;
+}
+.tile-cell.used.sel {
+  opacity: 1;
+}
+.fill-keys {
+  font-size: 11px;
+  align-self: center;
+}
+.footer-check {
+  align-self: center;
+  margin-right: auto;
+}
+
+/* ---------- custom template editor ---------- */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.stepper > button {
+  width: 24px;
+  padding: 0;
+}
+.ct-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+.ct-plus {
+  color: var(--fg-muted);
+  opacity: 0.5;
+}
+.ct-remove {
+  margin-top: 8px;
+}
+.warn {
+  color: var(--danger);
+}
