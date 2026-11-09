@@ -27,6 +27,19 @@ function setup() {
 const dump = (p: Project) => JSON.stringify(p, (_k, v) => (v instanceof Uint8ClampedArray ? Array.from(v) : v));
 
 describe("ops", () => {
+  it("addTiles equals repeated addTile and leaves the input untouched", () => {
+    const ts = ops.createTileset("t", 2, 2);
+    let p = ops.addTileset(ops.createProject(), ts);
+    p = ops.addTile(p, ts.id, ops.createTile(ts, "first"));
+    const more = [ops.createTile(ts, "a"), ops.createTile(ts, "b"), ops.createTile(ts, "c")];
+    const one = more.reduce((q, t) => ops.addTile(q, ts.id, t), p);
+    const batch = ops.addTiles(p, ts.id, more);
+    expect(ops.findTileset(batch, ts.id)!.tileOrder).toEqual(ops.findTileset(one, ts.id)!.tileOrder);
+    expect(ops.findTileset(batch, ts.id)!.tiles).toEqual(ops.findTileset(one, ts.id)!.tiles);
+    expect(ops.findTileset(p, ts.id)!.tileOrder).toHaveLength(1);
+    expect(ops.addTiles(p, ts.id, [])).toBe(p);
+  });
+
   it("never mutates the input project", () => {
     const { p, tsId, a } = setup();
     const before = dump(p);

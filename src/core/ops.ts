@@ -160,6 +160,21 @@ export function addTile(p: Project, tsId: Id, tile: Tile, index?: number): Proje
   });
 }
 
+/**
+ * Appends many tiles in one step. Same result as calling addTile for each, but
+ * O(existing + new) instead of copying the tile map once per tile (which made
+ * importing 10k tiles take ~40 s).
+ */
+export function addTiles(p: Project, tsId: Id, tiles: readonly Tile[]): Project {
+  if (tiles.length === 0) return p;
+  return mapTileset(p, tsId, (ts) => {
+    const tileOrder = ts.tileOrder.concat(tiles.map((t) => t.id));
+    const map = { ...ts.tiles };
+    for (const t of tiles) map[t.id] = t;
+    return { ...ts, tileOrder, tiles: map };
+  });
+}
+
 export function setTilePixels(p: Project, tsId: Id, tileId: TileId, pixels: Uint8ClampedArray): Project {
   return mapTileset(p, tsId, (ts) => {
     const t = ts.tiles[tileId];

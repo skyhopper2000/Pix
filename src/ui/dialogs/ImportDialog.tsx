@@ -1,21 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { applyImport, defaultImportSettings, gridDims, PALETTE_EXTRACT_LIMIT, previewNameFromFile, sliceImage, validateImport, type ImportSettings } from "../../core/import";
+import { useEffect, useRef, useState } from "react";
+import { applyImport, defaultImportSettings, gridDims, PALETTE_EXTRACT_LIMIT, previewNameFromFile, validateImport, type ImportResult, type ImportSettings } from "../../core/import";
 import { activeTileset, history, setStatus, ui, useProject } from "../../state/app";
-import { decodeImage, type DecodedImage } from "../decodeImage";
+import { ImportSession, type LoadedImage } from "../importClient";
 import { drawChecker, fitCanvas } from "../render";
 import { Field, Modal, NumberInput } from "../widgets";
 
 const close = () => ui.set({ dialog: null });
 
-function SourcePreview({ img, s }: { img: DecodedImage; s: ImportSettings }) {
+/** Settings changes wait this long before the worker re-runs the dry run. */
+const DRY_RUN_DEBOUNCE_MS = 150;
+
+function SourcePreview({ img, s }: { img: LoadedImage; s: ImportSettings }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const bitmap = useMemo(() => {
-    const c = document.createElement("canvas");
-    c.width = img.width;
-    c.height = img.height;
-    c.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(img.pixels), img.width, img.height), 0, 0);
-    return c;
-  }, [img]);
+  const bitmap = img.bitmap;
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
@@ -29,14 +26,36 @@ function SourcePreview({ img, s }: { img: DecodedImage; s: ImportSettings }) {
     drawChecker(ctx, 0, 0, W, H, 6, true);
     ctx.drawImage(bitmap, 0, 0, W, H);
     const { cols, rows } = gridDims(img.width, img.height, s);
+    if (!cols || !rows) return;
+    // Each cell's outline, drawn as rows + cols lines in one path instead of one rect per cell.
+    const xs = (col: number) => Math.round((s.offsetX + col * (s.tileWidth + s.spacingX)) * k) + 0.5;
+    const ys = (r: number) => Math.round((s.offsetY + r * (s.tileHeight + s.spacingY)) * k) + 0.5;
+    const cw = Math.max(1, s.tileWidth * k - 1);
+    const ch = Math.max(1, s.tileHeight * k - 1);
+    const top = ys(0), bottom = ys(rows - 1) + ch;
+    const left = xs(0), right = xs(cols - 1) + cw;
     ctx.strokeStyle = "rgba(0,160,255,0.8)";
     ctx.lineWidth = 1;
-    for (let r = 0; r < rows; r++)
-      for (let col = 0; col < cols; col++) {
-        const x = (s.offsetX + col * (s.tileWidth + s.spacingX)) * k;
-        const y = (s.offsetY + r * (s.tileHeight + s.spacingY)) * k;
-        ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.max(1, s.tileWidth * k - 1), Math.max(1, s.tileHeight * k - 1));
+    if (s.tileWidth * k < 4 || s.tileHeight * k < 4) {
+      // Cells too small to see at this zoom: per-cell lines would paint the image solid blue,
+      // so outline only the area that will be sliced.
+      ctx.strokeRect(left, top, right - left, bottom - top);
+      return;
+    }
+    ctx.beginPath();
+    for (let col = 0; col < cols; col++) {
+      for (const x of [xs(col), xs(col) + cw]) {
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, bottom);
       }
+    }
+    for (let r = 0; r < rows; r++) {
+      for (const y of [ys(r), ys(r) + ch]) {
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
+      }
+    }
+    ctx.stroke();
   }, [bitmap, img, s]);
   return <canvas ref={ref} className="import-preview" />;
 }
@@ -44,36 +63,70 @@ function SourcePreview({ img, s }: { img: DecodedImage; s: ImportSettings }) {
 export function ImportDialog({ fileName, bytes }: { fileName: string; bytes: Uint8Array }) {
   const project = useProject();
   const ts = activeTileset(project);
-  const [img, setImg] = useState<DecodedImage | null>(null);
+  const [session, setSession] = useState<ImportSession | null>(null);
+  const [img, setImg] = useState<LoadedImage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState<ImportSettings>(() => defaultImportSettings(ts ?? { tileWidth: 16, tileHeight: 16 }));
   const [reviewNear, setReviewNear] = useState(false);
   const [threshold, setThreshold] = useState(5);
+  const [dry, setDry] = useState<{ stats: ImportResult["stats"]; colorCount: number; settings: ImportSettings } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const tsId = ts?.id;
 
+  // Decode in the import worker. The worker also keeps a snapshot of the tileset's tiles for re-import dedupe.
   useEffect(() => {
+    const current = activeTileset(history.project);
+    if (!current) return;
+    const sess = new ImportSession();
     let live = true;
-    decodeImage(bytes).then(
+    setSession(sess);
+    sess.load(bytes, current).then(
       (d) => live && setImg(d),
       (e) => live && setError(`Couldn't decode "${fileName}": ${e instanceof Error ? e.message : String(e)}`),
     );
     return () => {
       live = false;
+      sess.dispose();
     };
-  }, [bytes, fileName]);
+  }, [bytes, fileName, tsId]);
+
+  useEffect(() => () => img?.bitmap.close(), [img]);
 
   const sizeLocked = !!ts && ts.tileOrder.length > 0;
   const errors = img && ts ? validateImport(img, ts, s) : [];
-  // Dry run for the summary line (pure, cheap enough to recompute on change).
-  const dry = useMemo(() => (img && ts && errors.length === 0 ? sliceImage(img, { ...ts, tileWidth: s.tileWidth, tileHeight: s.tileHeight }, s, "") : null), [img, ts, s, errors.length]);
+  const valid = !!img && errors.length === 0;
+
+  // Dry run for the summary line, debounced and off the UI thread.
+  useEffect(() => {
+    if (!session || !valid) return;
+    let live = true;
+    const t = setTimeout(() => {
+      session.analyze(s).then(
+        (r) => live && setDry({ ...r, settings: s }),
+        (e) => live && setError(e instanceof Error ? e.message : String(e)),
+      );
+    }, DRY_RUN_DEBOUNCE_MS);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [session, valid, s]);
 
   if (!ts) return null;
   const set = (patch: Partial<ImportSettings>) => setS((o) => ({ ...o, ...patch }));
 
-  const run = () => {
-    if (!img || errors.length) return;
+  const run = async () => {
+    if (!session || !valid || busy) return;
     const name = previewNameFromFile(fileName);
-    const target = { ...ts, tileWidth: s.tileWidth, tileHeight: s.tileHeight };
-    const result = sliceImage(img, target, s, name);
+    setBusy(true);
+    let result: ImportResult;
+    try {
+      result = await session.commit(s, name);
+    } catch (e) {
+      setBusy(false);
+      setError(`Import failed: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     history.dispatch(`Import ${fileName}`, (p) => applyImport(p, ts.id, result, s));
     // Open the rebuilt preview and the first tile of the image (tile0_0 when it's new).
     const first = result.preview.cells.find(Boolean) ?? null;
@@ -94,8 +147,8 @@ export function ImportDialog({ fileName, bytes }: { fileName: string; bytes: Uin
           <button type="button" onClick={close}>
             Cancel
           </button>
-          <button type="button" className="primary" onClick={run} disabled={!img || errors.length > 0}>
-            Import into "{ts.name}"
+          <button type="button" className="primary" onClick={run} disabled={!valid || busy}>
+            {busy ? "Importing…" : `Import into "${ts.name}"`}
           </button>
         </>
       }
@@ -149,12 +202,13 @@ export function ImportDialog({ fileName, bytes }: { fileName: string; bytes: Uin
                 </label>
               </span>
             </Field>
-            {dry && (
+            {valid && (!dry || dry.settings !== s) && <p className="import-summary muted">Slicing…</p>}
+            {valid && dry && dry.settings === s && (
               <p className="import-summary">
                 {dry.stats.cells} cells → <b>{dry.stats.newTiles}</b> new tiles
                 {dry.stats.reused ? `, ${dry.stats.reused} cells reuse existing tiles` : ""}
                 {dry.stats.skippedEmpty ? `, ${dry.stats.skippedEmpty} empty skipped` : ""}
-                {s.extractPalette ? `, ${dry.colors.length}${dry.colors.length >= PALETTE_EXTRACT_LIMIT ? "+" : ""} colours` : ""}. The image becomes map preview "{previewNameFromFile(fileName)}".
+                {s.extractPalette ? `, ${dry.colorCount}${dry.colorCount >= PALETTE_EXTRACT_LIMIT ? "+" : ""} colours` : ""}. The image becomes map preview "{previewNameFromFile(fileName)}".
               </p>
             )}
             {errors.length > 0 && (

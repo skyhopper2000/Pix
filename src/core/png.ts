@@ -1,4 +1,4 @@
-import { unzlibSync, zlibSync } from "fflate";
+import { Unzlib, zlibSync } from "fflate";
 
 /**
  * Minimal, exact PNG codec. Decoding our own PNGs (and user PNGs) here instead
@@ -112,13 +112,25 @@ export function isPng(bytes: Uint8Array): boolean {
   return bytes.length > 8 && SIG.every((v, i) => bytes[i] === v);
 }
 
+/** Largest image decodePng accepts (width × height): 2^27 px, i.e. 512 MB of RGBA. */
+export const MAX_IMAGE_PIXELS = 1 << 27;
+
+const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+
+/**
+ * Streaming decode: IDAT chunks are inflated as they are read, and each
+ * scanline is unfiltered and expanded to RGBA as soon as it is complete. Only
+ * two scanlines are held besides the output, so peak memory is about the RGBA
+ * result plus the file (the old whole-buffer decoder needed about 3× that).
+ */
 export function decodePng(bytes: Uint8Array): RgbaImage {
   if (!isPng(bytes)) throw new Error("Not a PNG file");
   let o = 8;
-  let width = 0, height = 0, depth = 0, ctype = 0, interlace = 0;
+  let width = 0, height = 0, depth = 0, ctype = 0;
   let palette: Uint8Array | null = null;
   let trns: Uint8Array | null = null;
-  const idat: Uint8Array[] = [];
+  let rows: RowDecoder | null = null;
+  let inflater: Unzlib | null = null;
   while (o + 8 <= bytes.length) {
     const len = u32(bytes, o);
     const type = String.fromCharCode(bytes[o + 4], bytes[o + 5], bytes[o + 6], bytes[o + 7]);
@@ -128,83 +140,176 @@ export function decodePng(bytes: Uint8Array): RgbaImage {
       height = u32(data, 4);
       depth = data[8];
       ctype = data[9];
-      interlace = data[12];
+      if (!width || !height) throw new Error("PNG has no IHDR");
+      if (data[12]) throw new Error("Interlaced PNGs are not supported");
+      if (!CHANNELS[ctype]) throw new Error(`Unsupported PNG colour type ${ctype}`);
+      if (width * height > MAX_IMAGE_PIXELS) throw new Error(`Image is too large (${width}×${height} px); the limit is ${MAX_IMAGE_PIXELS} pixels`);
     } else if (type === "PLTE") palette = data;
     else if (type === "tRNS") trns = data;
-    else if (type === "IDAT") idat.push(data);
-    else if (type === "IEND") break;
+    else if (type === "IDAT") {
+      if (!width) throw new Error("PNG has no IHDR");
+      if (!rows) {
+        const r = (rows = new RowDecoder(width, height, depth, ctype, palette, trns));
+        inflater = new Unzlib((chunk) => r.push(chunk));
+      }
+      inflater!.push(data, false);
+    } else if (type === "IEND") break;
     o += 12 + len;
   }
   if (!width || !height) throw new Error("PNG has no IHDR");
-  if (interlace) throw new Error("Interlaced PNGs are not supported");
-  const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[ctype];
-  if (!channels) throw new Error(`Unsupported PNG colour type ${ctype}`);
-  const total = idat.reduce((n, d) => n + d.length, 0);
-  const z = new Uint8Array(total);
-  let zo = 0;
-  for (const d of idat) {
-    z.set(d, zo);
-    zo += d.length;
+  if (!rows || !inflater) throw new Error("PNG has no image data");
+  inflater.push(new Uint8Array(0), true);
+  if (rows.y < height) throw new Error("PNG image data is truncated");
+  return { width, height, pixels: rows.out };
+}
+
+/** Collects inflated bytes into scanlines, unfilters them and writes RGBA rows. */
+class RowDecoder {
+  readonly out: Uint8ClampedArray;
+  /** Next output row. */
+  y = 0;
+  private readonly stride: number;
+  private readonly bpp: number;
+  private cur: Uint8Array;
+  private prev: Uint8Array;
+  /** Bytes of the current scanline received so far; -1 = waiting for its filter byte. */
+  private pos = -1;
+  private filter = 0;
+
+  constructor(
+    private readonly width: number,
+    private readonly height: number,
+    private readonly depth: number,
+    private readonly ctype: number,
+    private readonly palette: Uint8Array | null,
+    private readonly trns: Uint8Array | null,
+  ) {
+    if (ctype === 3 && !palette) throw new Error("Palette PNG without PLTE");
+    const channels = CHANNELS[ctype];
+    this.bpp = Math.max(1, (channels * depth) >> 3); // bytes per pixel for filtering
+    this.stride = Math.ceil((width * channels * depth) / 8);
+    this.cur = new Uint8Array(this.stride);
+    this.prev = new Uint8Array(this.stride); // the row above row 0 is all zeros
+    this.out = new Uint8ClampedArray(width * height * 4);
   }
-  const raw = unzlibSync(z);
-  const bpp = Math.max(1, (channels * depth) >> 3); // bytes per pixel for filtering
-  const stride = Math.ceil((width * channels * depth) / 8);
-  const data = new Uint8Array(stride * height);
-  for (let y = 0; y < height; y++) {
-    const f = raw[y * (stride + 1)];
-    const src = y * (stride + 1) + 1;
-    const dst = y * stride;
-    for (let i = 0; i < stride; i++) {
-      const x = raw[src + i];
-      const a = i >= bpp ? data[dst + i - bpp] : 0;
-      const b = y > 0 ? data[dst - stride + i] : 0;
-      const c = y > 0 && i >= bpp ? data[dst - stride + i - bpp] : 0;
-      data[dst + i] = (f === 0 ? x : f === 1 ? x + a : f === 2 ? x + b : f === 3 ? x + ((a + b) >> 1) : x + paeth(a, b, c)) & 255;
+
+  push(chunk: Uint8Array) {
+    const n = chunk.length;
+    let i = 0;
+    while (i < n && this.y < this.height) {
+      if (this.pos < 0) {
+        this.filter = chunk[i++];
+        this.pos = 0;
+        continue;
+      }
+      const take = Math.min(this.stride - this.pos, n - i);
+      this.cur.set(chunk.subarray(i, i + take), this.pos);
+      this.pos += take;
+      i += take;
+      if (this.pos === this.stride) {
+        unfilter(this.filter, this.cur, this.prev, this.bpp);
+        this.emit(this.cur);
+        const t = this.prev;
+        this.prev = this.cur;
+        this.cur = t;
+        this.pos = -1;
+        this.y++;
+      }
     }
   }
-  const out = new Uint8ClampedArray(width * height * 4);
-  // Read sample n of row y as an 8-bit value (16-bit takes the high byte; low depths are scaled for greyscale).
-  const sample = (y: number, n: number): number => {
-    const row = y * stride;
-    if (depth === 8) return data[row + n];
-    if (depth === 16) return data[row + n * 2];
-    const perByte = 8 / depth;
-    const byte = data[row + Math.floor(n / perByte)];
-    const shift = 8 - depth * ((n % perByte) + 1);
-    return (byte >> shift) & ((1 << depth) - 1);
-  };
-  const scaleGrey = depth < 8 ? 255 / ((1 << depth) - 1) : 1;
-  // tRNS for greyscale/RGB: a single colour key, stored as 16-bit values.
-  const key = (i: number) => (trns ? (depth === 16 ? trns[i * 2] : trns[i * 2 + 1]) : -1);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const d = (y * width + x) * 4;
+
+  /** Expands one unfiltered scanline to RGBA row `this.y`. 8-bit RGBA/RGB/palette take fast paths. */
+  private emit(line: Uint8Array) {
+    const { width: w, depth, ctype, out, trns } = this;
+    let d = this.y * w * 4;
+    if (depth === 8 && ctype === 6) {
+      out.set(line, d);
+    } else if (depth === 8 && ctype === 2) {
+      const k0 = trns ? trns[1] : -1, k1 = trns ? trns[3] : -1, k2 = trns ? trns[5] : -1;
+      for (let s = 0; s < w * 3; s += 3, d += 4) {
+        const r = line[s], g = line[s + 1], b = line[s + 2];
+        out[d] = r;
+        out[d + 1] = g;
+        out[d + 2] = b;
+        out[d + 3] = trns && r === k0 && g === k1 && b === k2 ? 0 : 255;
+      }
+    } else if (depth === 8 && ctype === 3) {
+      const pal = this.palette!;
+      const tl = trns ? trns.length : 0;
+      for (let x = 0; x < w; x++, d += 4) {
+        const idx = line[x];
+        out[d] = pal[idx * 3];
+        out[d + 1] = pal[idx * 3 + 1];
+        out[d + 2] = pal[idx * 3 + 2];
+        out[d + 3] = idx < tl ? trns![idx] : 255;
+      }
+    } else this.emitGeneric(line, d);
+  }
+
+  /** Any depth / colour type: grey, grey+alpha, 16-bit, and packed 1/2/4-bit samples. */
+  private emitGeneric(line: Uint8Array, d: number) {
+    const { width: w, depth, ctype, out, trns } = this;
+    // Sample n of the line as an 8-bit value (16-bit takes the high byte; low depths are scaled for greyscale).
+    const sample = (n: number): number => {
+      if (depth === 8) return line[n];
+      if (depth === 16) return line[n * 2];
+      const perByte = 8 / depth;
+      const byte = line[Math.floor(n / perByte)];
+      const shift = 8 - depth * ((n % perByte) + 1);
+      return (byte >> shift) & ((1 << depth) - 1);
+    };
+    const scaleGrey = depth < 8 ? 255 / ((1 << depth) - 1) : 1;
+    // tRNS for greyscale/RGB: a single colour key, stored as 16-bit values.
+    const key = (i: number) => (trns ? (depth === 16 ? trns[i * 2] : trns[i * 2 + 1]) : -1);
+    for (let x = 0; x < w; x++, d += 4) {
       if (ctype === 6) {
-        for (let k = 0; k < 4; k++) out[d + k] = sample(y, x * 4 + k);
+        for (let k = 0; k < 4; k++) out[d + k] = sample(x * 4 + k);
       } else if (ctype === 2) {
-        const r = sample(y, x * 3), g = sample(y, x * 3 + 1), b = sample(y, x * 3 + 2);
+        const r = sample(x * 3), g = sample(x * 3 + 1), b = sample(x * 3 + 2);
         out[d] = r;
         out[d + 1] = g;
         out[d + 2] = b;
         out[d + 3] = trns && depth === 8 && r === key(0) && g === key(1) && b === key(2) ? 0 : 255;
       } else if (ctype === 3) {
-        const idx = sample(y, x);
-        if (!palette) throw new Error("Palette PNG without PLTE");
-        out[d] = palette[idx * 3];
-        out[d + 1] = palette[idx * 3 + 1];
-        out[d + 2] = palette[idx * 3 + 2];
+        const pal = this.palette!;
+        const idx = sample(x);
+        out[d] = pal[idx * 3];
+        out[d + 1] = pal[idx * 3 + 1];
+        out[d + 2] = pal[idx * 3 + 2];
         out[d + 3] = trns && idx < trns.length ? trns[idx] : 255;
       } else if (ctype === 0) {
-        const raw8 = sample(y, x);
+        const raw8 = sample(x);
         const g = Math.round(raw8 * scaleGrey);
         out[d] = out[d + 1] = out[d + 2] = g;
         out[d + 3] = trns && depth <= 8 && raw8 === (trns[1] ?? -1) ? 0 : 255;
       } else {
-        const g = sample(y, x * 2);
+        const g = sample(x * 2);
         out[d] = out[d + 1] = out[d + 2] = g;
-        out[d + 3] = sample(y, x * 2 + 1);
+        out[d + 3] = sample(x * 2 + 1);
       }
     }
   }
-  return { width, height, pixels: out };
+}
+
+/** Reverses a scanline filter in place. `prev` is the previous unfiltered line (zeros above row 0). */
+function unfilter(f: number, line: Uint8Array, prev: Uint8Array, bpp: number) {
+  const n = line.length;
+  const lead = Math.min(bpp, n);
+  switch (f) {
+    case 0:
+      return;
+    case 1: // Sub
+      for (let i = bpp; i < n; i++) line[i] = (line[i] + line[i - bpp]) & 255;
+      return;
+    case 2: // Up
+      for (let i = 0; i < n; i++) line[i] = (line[i] + prev[i]) & 255;
+      return;
+    case 3: // Average
+      for (let i = 0; i < lead; i++) line[i] = (line[i] + (prev[i] >> 1)) & 255;
+      for (let i = bpp; i < n; i++) line[i] = (line[i] + ((line[i - bpp] + prev[i]) >> 1)) & 255;
+      return;
+    default: // 4 = Paeth. Unknown types are treated as Paeth, as the old decoder did.
+      for (let i = 0; i < lead; i++) line[i] = (line[i] + prev[i]) & 255; // paeth(0, b, 0) = b
+      for (let i = bpp; i < n; i++) line[i] = (line[i] + paeth(line[i - bpp], prev[i], prev[i - bpp])) & 255;
+  }
 }
