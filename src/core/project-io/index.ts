@@ -122,15 +122,15 @@ const posInt = (v: unknown, d: number) => (Number.isInteger(v) && (v as number) 
 /** Reads a project folder. Throws only if project.json is missing or unreadable. */
 export function deserializeProject(files: FileTree): LoadResult {
   const raw = files.get(PROJECT_FILE);
-  if (!raw) throw new Error("This folder has no project.json, so it isn't a Tile Studio project.");
+  if (!raw) throw new Error("This folder has no project.json, so it isn't a Pix project.");
   let json: unknown;
   try {
     json = JSON.parse(new TextDecoder().decode(raw));
   } catch (e) {
     throw new Error(`project.json is not valid JSON: ${(e as Error).message}`);
   }
-  if (!isObj(json) || json.format !== FORMAT) throw new Error("project.json is not a Tile Studio project file.");
-  if (typeof json.version !== "number" || json.version > FORMAT_VERSION) throw new Error(`This project was saved by a newer version of Tile Studio (format ${String(json.version)}).`);
+  if (!isObj(json) || json.format !== FORMAT) throw new Error("project.json is not a Pix project file.");
+  if (typeof json.version !== "number" || json.version > FORMAT_VERSION) throw new Error(`This project was saved by a newer version of Pix (format ${String(json.version)}).`);
 
   const warnings: string[] = [];
   const palIn = isObj(json.palette) ? json.palette : {};
@@ -245,3 +245,7 @@ export function deserializeProject(files: FileTree): LoadResult {
 
 /** "My Game" -> "My Game.tilestudio" */
 export const projectFolderName = (name: string): string => (name.endsWith(PROJECT_EXT) ? name : (name.trim() || "Untitled") + PROJECT_EXT);
+
+/** Inverse of projectFolderName: "My Game.tilestudio" → "My Game". Other suffixes (e.g. ".zip") are dropped too. */
+export const projectNameFromFolder = (folder: string): string =>
+  folder.replace(/\.zip$/i, "").replace(new RegExp(`\\${PROJECT_EXT}$`, "i"), "").trim();

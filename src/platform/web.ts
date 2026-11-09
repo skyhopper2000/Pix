@@ -119,7 +119,7 @@ export const webPlatform: Platform = {
   kind: "web",
 
   async openFile(filters): Promise<OpenedFile | null> {
-    const exts = filters.flatMap((f) => f.extensions.map((x) => "." + x)).join(",");
+    const exts = [...new Set(filters.flatMap((f) => f.extensions.map((x) => "." + x)))].join(",");
     const file = await inputPick(exts);
     if (!file) return null;
     return { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
@@ -167,7 +167,9 @@ export const webPlatform: Platform = {
     return { name: file.name.replace(/\.zip$/i, ""), files, target: new WebTarget(file.name) };
   },
 
-  async saveFolderAs(suggestedName, files) {
+  async chooseFolderTarget(suggestedName) {
+    // The File System Access API has no "save folder as <name>" dialog, so the browser
+    // build picks a parent folder and uses the suggested name.
     const picker = w().showDirectoryPicker;
     if (picker) {
       try {
@@ -175,16 +177,13 @@ export const webPlatform: Platform = {
         // If the user picked an existing project folder, save into it; otherwise create one inside.
         let dir = parent;
         if (!parent.name.endsWith(".tilestudio")) dir = await parent.getDirectoryHandle(suggestedName, { create: true });
-        await writeTree(dir, files);
         return new WebTarget(dir.name, undefined, dir);
       } catch (e) {
         if (isAbort(e)) return null;
         throw e;
       }
     }
-    const zipName = suggestedName + ".zip";
-    download(zipName, zipTree(files));
-    return new WebTarget(zipName);
+    return new WebTarget(suggestedName + ".zip");
   },
 
   async saveFolderTo(target, files) {

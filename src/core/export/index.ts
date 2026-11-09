@@ -147,7 +147,7 @@ export function buildExport(p: Project, s: ExportSettings, now: Date = new Date(
   const multi = tilesets.length > 1;
   const rootNames = uniquer();
   const manifest: Manifest = {
-    generator: "Tile Studio",
+    generator: "Pix",
     formatVersion: 1,
     project: p.name,
     exportedAt: now.toISOString(),

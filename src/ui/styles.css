@@ -254,6 +254,21 @@ input[type="color"] {
   border: 1px solid transparent;
   line-height: 1;
 }
+.icon-btn:has(> .icon-img) {
+  height: auto;
+  min-width: 0;
+  padding: 1px;
+}
+.icon-btn:disabled > .icon-img {
+  opacity: 0.35;
+}
+.icon-img {
+  display: block;
+  width: var(--icon-px, 32px);
+  height: var(--icon-px, 32px);
+  image-rendering: pixelated;
+  pointer-events: none;
+}
 .icon-btn.active {
   background: var(--bg-sel);
   border-color: var(--focus);

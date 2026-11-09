@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { activeTile, activeTileset, history, ui, useHistoryFlags, useProject, useUi } from "../state/app";
 import { eventShortcut, findShortcut, isEnabled, layoutBridge } from "./commands";
 import { Dialogs } from "./Dialogs";
+import { iconCssPx } from "./icons";
 import { loadLayout, PANELS, resetLayout, saveLayout } from "./layout";
 import { CommandPalette, MenuBar } from "./MenuBar";
 import { EditorPanel } from "./panels/EditorPanel";
@@ -87,12 +88,20 @@ export function App() {
   useGlobalShortcuts();
 
   useEffect(() => {
-    document.title = `${dirty ? "● " : ""}${project.name} — Tile Studio`;
+    document.title = `${dirty ? "● " : ""}${project.name} — Pix`;
   }, [project.name, dirty]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    // Keep pixel-art icons on whole device pixels; DPR changes on zoom or when moving between monitors.
+    const apply = () => document.documentElement.style.setProperty("--icon-px", `${iconCssPx(window.devicePixelRatio)}px`);
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, []);
 
   const show = useCallback(
     (panel: string) => {

@@ -1,16 +1,16 @@
-# Tile Studio
+# Pix
 
 > Working name. Free, open-source (GPL-3.0) Windows desktop app that turns hand-drawn or imported tiles into clean, **Tiled-ready** tilesets.
 
 **Create → organize → export.** Draw tiles (or slice them out of an old sheet or map rip), sort them into terrain sets and object groups, then export a `.zip` that [Tiled](https://www.mapeditor.org/) can use straight away, Wang/terrain sets included.
 
-Tile Studio is made for hobbyists and indie developers building 2D tile-based games, especially RPGs.
+Pix is made for hobbyists and indie developers building 2D tile-based games, especially RPGs.
 
 ## You draw every pixel
 
-Tile Studio never generates, alters, "fixes" or judges your art. It slices, sorts, names, previews, packs and exports. That's it.
+Pix never generates, alters, "fixes" or judges your art. It slices, sorts, names, previews, packs and exports. That's it.
 
-| Tile Studio will | Tile Studio won't |
+| Pix will | Pix won't |
 | --- | --- |
 | Slice an image into tiles | Generate autotiles for you |
 | Merge tiles that are *exactly* identical | Fill empty template slots |
@@ -30,7 +30,7 @@ Tile Studio never generates, alters, "fixes" or judges your art. It slices, sort
   - *47 blob*, *16 corner*, *16 edge*: terrain transitions between two named terrains, exported as Tiled Wang sets.
   - *Custom template*: your own slot grid with Wang bits per slot.
 - **Map preview.** A lightweight grid for seeing tiles in context: stamp, clear, highlight every use of a tile, and export as PNG at any integer scale. It is deliberately **not** a level editor. Use Tiled for that.
-- **Palette.** Free RGBA or palette-locked. Import `.gpl`, `.hex`, `.pal` and Lospec palettes; export `.gpl` and `.hex`.
+- **Palette.** Free RGBA or palette-locked. Import `.gpl`, `.hex`, `.pal` and Lospec palettes, or take the colours straight from an image (`.png`, `.gif`, `.bmp`, …, up to 256 colours) without importing its tiles; export `.gpl` and `.hex`.
 - **Export.** One `.zip` containing a PNG + `.tsx` per sheet, preview images and the palette. Options: scale (1×–4×), columns, padding, spacing, extrusion (anti-seam), per-tile PNGs. **Export Again** (`Ctrl+Shift+E`) repeats the last export.
 
 ### Export layout

@@ -1,9 +1,42 @@
 import { describe, expect, it } from "vitest";
 import { pack } from "../color";
-import { parseGpl, parseHexList, parseLospecJson, parsePaletteFile, writeGpl, writeHex } from ".";
+import { isPaletteImageFile, paletteFromImage, parseGpl, parseHexList, parseLospecJson, parsePaletteFile, writeGpl, writeHex } from ".";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const C = [pack(0, 0, 0), pack(255, 128, 1), pack(18, 52, 86)];
+
+/** RGBA pixels from packed colours. */
+const px = (...cs: number[]) => new Uint8ClampedArray(cs.flatMap((c) => [c >>> 24, (c >>> 16) & 255, (c >>> 8) & 255, c & 255]));
+
+describe("palette from image", () => {
+  it("takes distinct colours in reading order, skipping transparent pixels", () => {
+    const clear = pack(9, 9, 9, 0);
+    const img = { pixels: px(C[1], C[1], clear, C[0], C[2], C[1], C[0]) };
+    expect(paletteFromImage(img).colors).toEqual([C[1], C[0], C[2]]);
+  });
+
+  it("keeps colours exact, including partial alpha", () => {
+    const half = pack(10, 20, 30, 128);
+    expect(paletteFromImage({ pixels: px(half, pack(10, 20, 30)) }).colors).toEqual([half, pack(10, 20, 30)]);
+  });
+
+  it("accepts exactly the limit and refuses one more", () => {
+    const cs = Array.from({ length: 5 }, (_, i) => pack(i, 0, 0));
+    expect(paletteFromImage({ pixels: px(...cs) }, 5).colors).toHaveLength(5);
+    expect(() => paletteFromImage({ pixels: px(...cs, pack(99, 0, 0)) }, 5)).toThrow(/more than 5 colours/);
+  });
+
+  it("refuses a fully transparent image", () => {
+    expect(() => paletteFromImage({ pixels: px(0, 0) })).toThrow(/no visible colours/);
+  });
+
+  it("recognises image files by extension", () => {
+    expect(isPaletteImageFile("swatches.PNG")).toBe(true);
+    expect(isPaletteImageFile("pal.gif")).toBe(true);
+    expect(isPaletteImageFile("pal.gpl")).toBe(false);
+    expect(isPaletteImageFile("noext")).toBe(false);
+  });
+});
 
 describe("palette files", () => {
   it("round-trips .gpl", () => {

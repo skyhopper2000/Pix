@@ -1,9 +1,19 @@
 import { buildExport, exportZipName, zipFiles, type ExportSettings } from "../core/export";
 import type { Id, Project, TileId } from "../core/model";
 import * as ops from "../core/ops";
-import { parsePaletteFile, writeGpl, writeHex } from "../core/palette";
-import { deserializeProject, projectFolderName, serializeProject } from "../core/project-io";
+import {
+  isPaletteImageFile,
+  PALETTE_FILE_EXTENSIONS,
+  PALETTE_IMAGE_EXTENSIONS,
+  PALETTE_IMAGE_LIMIT,
+  paletteFromImage,
+  parsePaletteFile,
+  writeGpl,
+  writeHex,
+} from "../core/palette";
+import { deserializeProject, projectFolderName, projectNameFromFolder, serializeProject } from "../core/project-io";
 import { getPlatform } from "../platform";
+import { decodeImage } from "../platform/decodeImage";
 import { activeTileset, history, openTile, reconcileSelection, setStatus, ui } from "./app";
 
 /** Commands the UI calls. Project edits go through history.dispatch so they're undoable. */
@@ -59,17 +69,19 @@ export function openProject() {
 export async function saveProject(forceAs = false) {
   try {
     const platform = await getPlatform();
-    const p = history.project;
-    const files = serializeProject(p, ui.get().preserved);
     const target = ui.get().projectTarget;
     if (target && !forceAs) {
-      await platform.saveFolderTo(target, files);
+      await platform.saveFolderTo(target, serializeProject(history.project, ui.get().preserved));
       history.markSaved();
       setStatus(`Saved ${target.label}`);
       return;
     }
-    const t = await platform.saveFolderAs(projectFolderName(p.name), files);
+    const t = await platform.chooseFolderTarget(projectFolderName(history.project.name));
     if (!t) return;
+    // The name typed in the Save dialog becomes the project's name.
+    const chosen = projectNameFromFolder(t.label);
+    if (chosen && chosen !== history.project.name) history.dispatch("Rename project", (p) => ops.renameProject(p, chosen));
+    await platform.saveFolderTo(t, serializeProject(history.project, ui.get().preserved));
     ui.set({ projectTarget: t });
     history.markSaved();
     setStatus(`Saved ${t.label}`);
@@ -132,9 +144,14 @@ export async function exportAgain() {
 
 export async function importPalette() {
   try {
-    const f = await (await getPlatform()).openFile([{ name: "Palettes", extensions: ["gpl", "hex", "pal", "json", "txt"] }]);
+    const f = await (await getPlatform()).openFile([
+      { name: "Palettes and images", extensions: [...PALETTE_FILE_EXTENSIONS, ...PALETTE_IMAGE_EXTENSIONS] },
+      { name: "Palette files", extensions: PALETTE_FILE_EXTENSIONS },
+      { name: `Images (up to ${PALETTE_IMAGE_LIMIT} colours)`, extensions: PALETTE_IMAGE_EXTENSIONS },
+    ]);
     if (!f) return;
-    const pal = parsePaletteFile(f.name, f.bytes);
+    // Images only contribute their colours; nothing else from the file is imported.
+    const pal = isPaletteImageFile(f.name) ? paletteFromImage(await decodeImage(f.bytes)) : parsePaletteFile(f.name, f.bytes);
     history.dispatch("Import palette", (p) => ops.addPaletteColors(p, pal.colors));
     setStatus(`Imported ${pal.colors.length} colours from ${f.name}`);
   } catch (e) {

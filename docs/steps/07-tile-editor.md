@@ -21,7 +21,7 @@
 - Extras beyond the spec table: brush size 1–8 (`[` `]`); pixel-perfect needs size 1. Shift locks square/circle for rectangle/ellipse.
 
 ## Built
-As drafted. A dev-only `window.__tileStudio` handle (history, ui, actions) is exposed in `npm run dev` builds for inspection; it's stripped from production builds.
+As drafted. A dev-only `window.__pix` handle (history, ui, actions) is exposed in `npm run dev` builds for inspection; it's stripped from production builds.
 
 ## Verified
 - 8 new unit tests (77 total): lines, L-corners/pixel-perfect paths, rectangles + square lock, ellipse bounds/symmetry/edge contact for several box sizes incl. 1×1 and thin ones, contiguous vs global fill, plotting on copies, palette/brightness shading (incl. transparent and out-of-palette), brushes.

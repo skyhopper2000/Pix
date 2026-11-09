@@ -1,10 +1,10 @@
-# Tile Studio — v1 Design Spec
+# Pix — v1 Design Spec
 
 Nov 4, 2026 · @Quentin Frank
 
 ## Overview
 
-v1 is a free, open-source Windows desktop app that turns hand-drawn or imported tiles into clean, Tiled-ready tilesets: **create → organize → export**. "Tile Studio" is a working name.
+v1 is a free, open-source Windows desktop app that turns hand-drawn or imported tiles into clean, Tiled-ready tilesets: **create → organize → export**. The product is called **Pix**.
 
 **Audience.** Hobbyists and indie devs making 2D games, especially tile-based RPGs. Not aimed at professional artists.
 
@@ -215,7 +215,7 @@ v1 is done when Jane can complete every step below with no workaround, from map 
 
 **Open for v1**
 
-- [ ] Product name ("Tile Studio" is a placeholder).
+- [x] Product name: **Pix**.
 - [ ] Are isometric and hex grids in v1, or a stretch goal after square?
 - [ ] Folder-based project format OK, or do you prefer a single file?
 - [ ] Default tile size for a new tileset: 16 or 32 px?
