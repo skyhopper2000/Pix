@@ -11,7 +11,7 @@
   },
   "app": {
     "windows": [
-      { "title": "Pix", "width": 1400, "height": 900, "minWidth": 900, "minHeight": 600 }
+      { "title": "Pix", "width": 1400, "height": 900, "minWidth": 900, "minHeight": 600, "dragDropEnabled": false }
     ],
     "security": { "csp": null }
   },

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { applyImport, defaultImportSettings, gridDims, PALETTE_EXTRACT_LIMIT, previewNameFromFile, validateImport, type ImportResult, type ImportSettings } from "../../core/import";
 import { activeTileset, history, setStatus, ui, useProject } from "../../state/app";
-import { decodeImage, type DecodedImage } from "../../platform/decodeImage";
+import { ImportSession, type LoadedImage } from "../importClient";
 import { drawChecker, fitCanvas } from "../render";
 import { Field, Modal, NumberInput } from "../widgets";
 

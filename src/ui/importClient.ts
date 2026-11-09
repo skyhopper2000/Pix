@@ -1,7 +1,7 @@
 import type { ImportResult, ImportSettings } from "../core/import";
 import type { Tileset } from "../core/model";
 import type { RgbaImage } from "../core/png";
-import { decodeImage } from "./decodeImage";
+import { decodeImage } from "../platform/decodeImage";
 
 /** Messages to and from import.worker.ts. */
 export type WorkerRequest =
