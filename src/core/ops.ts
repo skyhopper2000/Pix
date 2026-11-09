@@ -323,6 +323,36 @@ export function nameTilesFromSlots(p: Project, tsId: Id, subsetId: Id): Project 
   return next;
 }
 
+/**
+ * Index of the next empty cell after `from` (wrapping round), or null when every cell is filled.
+ * `from = null` starts at the first cell. Navigation only: it never fills anything.
+ */
+export function nextEmptyCell(cells: readonly (TileId | null)[], from: number | null): number | null {
+  const n = cells.length;
+  const start = from === null ? 0 : from + 1;
+  for (let k = 0; k < n; k++) {
+    const i = (start + k) % n;
+    if (cells[i] === null) return i;
+  }
+  return null;
+}
+
+/**
+ * Replaces a custom subset's template. Each tile reference stays on the slot at the same
+ * (col,row); references on slots that no longer exist are dropped (the tiles stay in the parent).
+ */
+export function setSubsetTemplate(p: Project, tsId: Id, subsetId: Id, template: Template): Project {
+  return mapTileset(p, tsId, (ts) =>
+    mapSubset(ts, subsetId, (s) => {
+      if (s.type !== "custom" || !s.template) return s;
+      const old = new Map<string, TileId | null>();
+      s.template.slots.forEach((slot, i) => old.set(`${slot.col},${slot.row}`, s.cells[i] ?? null));
+      const cells = template.slots.map((slot) => old.get(`${slot.col},${slot.row}`) ?? null);
+      return { ...s, template, cols: template.cols, rows: template.rows, cells };
+    }),
+  );
+}
+
 /** Resizes an unstructured subset's arrangement grid, keeping cells at the same (col,row). */
 export function resizeSubset(p: Project, tsId: Id, subsetId: Id, cols: number, rows: number): Project {
   return mapTileset(p, tsId, (ts) =>

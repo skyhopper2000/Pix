@@ -112,4 +112,48 @@ describe("ops", () => {
     p = ops.addPaletteColors(p, [3, 4]);
     expect(p.palette.colors).toEqual([1, 2, 3, 4]);
   });
+
+  it("nextEmptyCell finds the next empty cell after `from`, wrapping", () => {
+    const cells = ["a", null, "b", null, "c"];
+    expect(ops.nextEmptyCell(cells, null)).toBe(1);
+    expect(ops.nextEmptyCell(cells, 1)).toBe(3);
+    expect(ops.nextEmptyCell(cells, 3)).toBe(1);
+    expect(ops.nextEmptyCell(cells, 4)).toBe(1);
+    expect(ops.nextEmptyCell(["a", "b"], 0)).toBeNull();
+    expect(ops.nextEmptyCell([null], 0)).toBe(0);
+    expect(ops.nextEmptyCell([], null)).toBeNull();
+  });
+
+  it("setSubsetTemplate keeps tiles on the slot at the same position and drops removed slots", () => {
+    const ts = ops.createTileset("t", 2, 2);
+    let p = ops.addTileset(ops.createProject(), ts);
+    const tiles = [ops.createTile(ts, "a"), ops.createTile(ts, "b"), ops.createTile(ts, "c")];
+    p = ops.addTiles(p, ts.id, tiles);
+    const w = [0, 1, 0, 1, 0, 1, 0, 1];
+    const sub = ops.createSubset("c", "custom", {
+      template: { wangType: "corner", cols: 3, rows: 1, slots: [0, 1, 2].map((col) => ({ col, row: 0, wangId: w })) },
+    });
+    p = ops.addSubset(p, ts.id, sub);
+    tiles.forEach((t, i) => (p = ops.setSubsetCell(p, ts.id, sub.id, i, t.id)));
+    // New grid 2×2: (0,0) kept, (1,0) dropped, (2,0) out of the grid, (0,1) and (1,1) new.
+    const next = ops.setSubsetTemplate(p, ts.id, sub.id, {
+      wangType: "corner",
+      cols: 2,
+      rows: 2,
+      slots: [
+        { col: 0, row: 0, wangId: w },
+        { col: 0, row: 1, wangId: w },
+        { col: 1, row: 1, wangId: w },
+      ],
+    });
+    const s2 = ops.findTileset(next, ts.id)!.subsets[0];
+    expect(s2.cells).toEqual([tiles[0].id, null, null]);
+    expect([s2.cols, s2.rows]).toEqual([2, 2]);
+    expect(Object.keys(ops.findTileset(next, ts.id)!.tiles)).toHaveLength(3);
+    // The input is untouched; non-custom subsets are left alone.
+    expect(ops.findTileset(p, ts.id)!.subsets[0].cells).toHaveLength(3);
+    const blob = ops.createSubset("b", "corner16");
+    const p2 = ops.addSubset(p, ts.id, blob);
+    expect(ops.setSubsetTemplate(p2, ts.id, blob.id, s2.template!)).toEqual(p2);
+  });
 });
