@@ -127,21 +127,25 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 8 | `step/08-subsets-previews` | Subset UI (slots, guides, terrains, drag-drop, draw-into-slot), map preview editor (paint/stamp/clear/highlight/grid/zoom/PNG export), subset previews | ready for review |
 | 9 | `step/09-dialogs` | Import dialog, near-duplicate review panel, export dialog, Export Again, palette import/export | ready for review |
 | 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | ready for review (Tiled check pending) |
-| 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog); import a palette from an image; rename to Pix + pixel-art icons and logo | in progress |
-| 12 | `step/12-large-image-import` (from `main`) | Large-image import: streaming PNG decode, in-place cell hashing, batched tile insert, decode/slice in a Web Worker | ready for review (worker not yet run in the Tauri build) |
+| 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog); import a palette from an image; rename to Pix + pixel-art icons and logo | merged (skyhopper2000/Pix#3) |
+| 12 | `step/12-large-image-import` (from `main`) | Large-image import: streaming PNG decode, in-place cell hashing, batched tile insert, decode/slice in a Web Worker | merged (skyhopper2000/Pix#2; worker not yet run in the Tauri build) |
+| 13 | `step/13-drag-and-drop` (from `main`) | Drag-and-drop in the desktop build: disable Tauri's webview drag-drop handler so HTML5 DnD (subset slots, panel tabs) works on Windows; block OS file drops from navigating the webview; repair the step 11/12 merge imports | ready for review (real mouse drag in the desktop window not agent-verified) |
 | 14 | `step/14-subset-wizard` (from `main`) | Fill Subset wizard (click a parent tile per slot, skip, go back), clearer custom template editor (+/− grid, slot count, Fill grid, 64-slot cap), Edit Custom Template for existing subsets | ready for review (cherry-picks the step 13 import repair) |
+
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
 
 ## Waiting on a human
 
-- Review and merge `step/11-v1-adjustments` (steps 1–10 are merged into `main`).
+- Review and merge `step/13-drag-and-drop` (steps 1–12 are merged into `main`).
 - Try *File › Save As…* and *Import Palette…* in the desktop build: native dialogs haven't been driven by an agent. Check the new window/taskbar icon after `npm run tauri build`.
 - Load an export in Tiled and paint with the terrain brush (spec acceptance step 10).
 - Decide the open questions above.
 - Hands-on pass with a real mouse/pen. Automated checks used synthetic events.
+- Steps 11 and 12 are merged; the merge left broken imports in `importClient.ts` / `ImportDialog.tsx`, fixed on `step/13-drag-and-drop`. Import a large PNG in the desktop app to check the worker in WebView2.
+- Step 13: in the desktop app, drag a tile into a subset slot, between slots, and drag a panel tab to another dock spot.
 - Step 14 was branched from `main` and cherry-picks `c9b71fa` (import repair) from step 13. Merging both touches this file's build-plan table; keep both rows.
-- Step 12 was branched from `main`, not stacked on step 11: merging it after step 11 will conflict in `ImportDialog.tsx` (step 11 moved `decodeImage.ts` to `src/platform/`; point `importClient.ts` at the new path) and in this file's build-plan table. Run `npm run tauri build` and import a large PNG in the desktop app to check the worker in WebView2.
+
 
 ## Dev tips
 

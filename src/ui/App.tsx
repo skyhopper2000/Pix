@@ -49,9 +49,21 @@ function useGlobalShortcuts() {
       if (history.dirty) e.preventDefault();
     };
     window.addEventListener("beforeunload", beforeUnload);
+    // A file dropped from the OS onto a spot that doesn't handle it would make the webview navigate
+    // to that file, replacing the app. Swallow external file drops; in-app drags are untouched.
+    const blockFileDrop = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "none";
+      }
+    };
+    window.addEventListener("dragover", blockFileDrop);
+    window.addEventListener("drop", blockFileDrop);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("beforeunload", beforeUnload);
+      window.removeEventListener("dragover", blockFileDrop);
+      window.removeEventListener("drop", blockFileDrop);
     };
   }, []);
 }
