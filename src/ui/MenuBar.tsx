@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ui, useHistoryFlags, useProject, useUi } from "../state/app";
-import { commands, isEnabled, MENUS, type Command } from "./commands";
+import { commands, isEnabled, MENUS, shortcutOf, type Command } from "./commands";
 
 export function MenuBar() {
   const [open, setOpen] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function MenuBar() {
                     <button type="button" role="menuitem" className="menu-item" disabled={!isEnabled(c)} onClick={() => run(c)}>
                       <span className="menu-check">{c.checked?.() ? "✓" : ""}</span>
                       <span className="menu-label">{c.label}</span>
-                      <span className="menu-shortcut">{c.shortcut ?? ""}</span>
+                      <span className="menu-shortcut">{shortcutOf(c)}</span>
                     </button>
                   </div>
                 ))}
@@ -119,7 +119,7 @@ export function CommandPalette() {
           {items.map((c, i) => (
             <button type="button" key={c.id} className={"palette-item" + (i === sel ? " sel" : "")} onMouseEnter={() => setSel(i)} onClick={() => run(c)}>
               <span className="palette-cat">{c.menu}:</span> {c.label}
-              <span className="menu-shortcut">{c.shortcut ?? ""}</span>
+              <span className="menu-shortcut">{shortcutOf(c)}</span>
             </button>
           ))}
           {items.length === 0 && <div className="palette-empty">No matching commands</div>}

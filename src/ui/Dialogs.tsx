@@ -9,6 +9,7 @@ import { ExportDialog } from "./dialogs/ExportDialog";
 import { FillSubsetDialog } from "./dialogs/FillSubsetDialog";
 import { ImportDialog } from "./dialogs/ImportDialog";
 import { NearDupDialog } from "./dialogs/NearDupDialog";
+import { PreferencesDialog } from "./dialogs/PreferencesDialog";
 import { Field, Modal, NumberInput } from "./widgets";
 
 const close = () => ui.set({ dialog: null });
@@ -274,6 +275,8 @@ export function Dialogs() {
       return <ExportDialog />;
     case "nearDup":
       return <NearDupDialog />;
+    case "preferences":
+      return <PreferencesDialog />;
     case "message":
       return (
         <Modal title={d.title} onClose={close} footer={<button type="button" className="primary" onClick={close} autoFocus>OK</button>}>

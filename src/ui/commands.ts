@@ -95,6 +95,7 @@ export const commands: Command[] = [
       A.deleteActiveTile();
     },
   },
+  { id: "edit.preferences", label: "Preferences…", menu: "Edit", shortcut: "Ctrl+,", sep: true, run: () => ui.set({ dialog: { kind: "preferences" } }) },
 
   // Tileset
   { id: "ts.new", label: "New Tileset…", menu: "Tileset", shortcut: "Ctrl+Shift+N", run: () => ui.set({ dialog: { kind: "newTileset" } }) },
@@ -182,22 +183,7 @@ export const commands: Command[] = [
   { id: "view.guides", label: "Slot Guides", menu: "View", run: () => ui.set((s) => ({ slotGuides: !s.slotGuides })), checked: () => ui.get().slotGuides },
   { id: "view.zoomIn", label: "Zoom In (Editor)", menu: "View", shortcut: "Ctrl+=", sep: true, run: () => ui.set((s) => ({ editorZoom: Math.min(64, s.editorZoom + 2) })) },
   { id: "view.zoomOut", label: "Zoom Out (Editor)", menu: "View", shortcut: "Ctrl+-", run: () => ui.set((s) => ({ editorZoom: Math.max(2, s.editorZoom - 2) })) },
-  {
-    id: "view.theme",
-    label: "Light Theme",
-    menu: "View",
-    sep: true,
-    checked: () => ui.get().theme === "light",
-    run: () => {
-      const theme = ui.get().theme === "dark" ? "light" : "dark";
-      ui.set({ theme });
-      try {
-        localStorage.setItem("tilestudio.theme", theme);
-      } catch {
-        /* storage unavailable */
-      }
-    },
-  },
+  { id: "view.theme", label: "Light Theme", menu: "View", sep: true, checked: () => ui.get().theme === "light", run: () => ui.set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })) },
 
   // Tools
   tool("pencil", "Pencil", "B"),
@@ -234,8 +220,17 @@ export function eventShortcut(e: KeyboardEvent): string {
   return parts.join("+");
 }
 
-export function findShortcut(s: string): Command | undefined {
-  return commands.find((c) => c.shortcut === s);
+/** The shortcut a command currently answers to: the user's override, else the default ("" = none). */
+export function shortcutOf(c: Command, overrides: Record<string, string> = ui.get().shortcuts): string {
+  return overrides[c.id] ?? c.shortcut ?? "";
 }
+
+export function findShortcut(s: string): Command | undefined {
+  if (!s) return undefined;
+  return commands.find((c) => shortcutOf(c) === s);
+}
+
+/** Commands whose shortcut can be changed in Preferences (hidden aliases are left alone). */
+export const bindableCommands = () => commands.filter((c) => !c.hidden);
 
 export const isEnabled = (c: Command) => (c.enabled ? c.enabled() : true);

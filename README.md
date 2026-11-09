@@ -31,7 +31,7 @@ Pix never generates, alters, "fixes" or judges your art. It slices, sorts, names
   - *Custom template*: your own slot grid (up to 64 slots) with Wang bits per slot. Grow the grid with the +/− buttons and click cells to add slots; *Tileset › Edit Custom Template…* changes it later.
   - **Fill slot by slot.** After *Create*, a wizard walks the slots: click a parent tile to put it in the current slot, skip any slot, or click any slot to go back to it. Reopen it any time with *Tileset › Fill Subset from Parent…*. Dragging tiles in still works.
 - **Map preview.** A lightweight grid for seeing tiles in context: stamp, clear, highlight every use of a tile, and export as PNG at any integer scale. It is deliberately **not** a level editor. Use Tiled for that.
-- **Palette.** Free RGBA or palette-locked. Import `.gpl`, `.hex`, `.pal` and Lospec palettes, or take the colours straight from an image (`.png`, `.gif`, `.bmp`, …, up to 256 colours) without importing its tiles; export `.gpl` and `.hex`.
+- **Palette.** Left-click draws the primary colour, right-click the secondary; the *⇅ Swap* button (or `X`) swaps them. Free RGBA or palette-locked. Import `.gpl`, `.hex`, `.pal` and Lospec palettes, or take the colours straight from an image (`.png`, `.gif`, `.bmp`, …, up to 256 colours) without importing its tiles; export `.gpl` and `.hex`.
 - **Export.** One `.zip` containing a PNG + `.tsx` per sheet, preview images and the palette. Options: scale (1×–4×), columns, padding, spacing, extrusion (anti-seam), per-tile PNGs. **Export Again** (`Ctrl+Shift+E`) repeats the last export.
 
 ### Export layout
@@ -72,7 +72,14 @@ In Tiled, add the `.tsx` files to a map and the terrain brush works with no setu
 | Ellipse | `Shift+U` | | | |
 | Lighten / darken | `D` | | | |
 | Select + move | `M` | | | |
-| Color picker | `I` or `Alt+click` | | | |
+| Color picker | `I` or `Alt+click` | | Preferences | `Ctrl+,` |
+| Swap colours | `X` | | | |
+
+Every shortcut can be changed in *Edit › Preferences…*.
+
+## Preferences
+
+*Edit › Preferences…* (`Ctrl+,`) holds light/dark mode, the UI font size, pixel-perfect strokes, slot guides, the preview grid, highlighting uses of the selected tile, and the keyboard shortcuts (click a shortcut, then press the new keys). Preferences are remembered between sessions.
 
 ## Project files
 

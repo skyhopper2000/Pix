@@ -107,6 +107,11 @@ export function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  const fontScale = useUi((s) => s.fontScale);
+  useEffect(() => {
+    document.documentElement.style.setProperty("--font-scale", String(fontScale));
+  }, [fontScale]);
+
   useEffect(() => {
     // Keep pixel-art icons on whole device pixels; DPR changes on zoom or when moving between monitors.
     const apply = () => document.documentElement.style.setProperty("--icon-px", `${iconCssPx(window.devicePixelRatio)}px`);
