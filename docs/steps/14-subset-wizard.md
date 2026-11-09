@@ -39,3 +39,18 @@ The wizard only assigns a tile when the user clicks it. Moving to the next empty
 
 ## Open questions
 - The spec's "Filling slots" paragraph describes drag-and-drop only. The wizard is an extra click path for the same user-driven action, so it was added to the spec paragraph.
+
+## Built
+
+As drafted, plus:
+- New Subset's footer has a **"Fill from parent tiles next"** checkbox (on by default, disabled when the parent is empty). The button reads *Create and fill…* while it's on.
+- The wizard starts on the first empty slot (or the slot selected in the tile bar when reopened). Tiles already in the subset are dimmed in the parent list, and a name filter helps with large parents. "Expected" reads "all grass" / "all dirt" for the none/all slots.
+- Tile bar: **▦** opens the wizard, **⊞** edits a custom template, and the subset hint starts with a *Fill slot by slot…* link.
+- The Edit Template dialog warns how many filled slots a change would drop.
+
+Files: `src/core/ops.ts`, `src/core/templates/index.ts` (+ tests), `src/state/app.ts` (dialog kinds), `src/ui/dialogs/FillSubsetDialog.tsx` (new), `src/ui/CustomTemplateEditor.tsx`, `src/ui/Dialogs.tsx`, `src/ui/commands.ts`, `src/ui/panels/TileBar.tsx`, `src/ui/styles.css`, README, spec.
+
+## Verified (2026-11-08)
+- `npm run typecheck`, `npm test` (95 passed, 1 skipped), `npm run build`: all pass.
+- Browser (`npm run dev`, 1400×900), 20 seeded tiles: New Subset → 16 corner → *Create and fill…* opens the wizard on slot 1. Clicking a tile filled the slot and moved on; Skip, Back, jump by clicking a slot, filling a gap (then skipping the already-filled next slot), Ctrl+Z inside the wizard and Del all behaved as designed. Custom: 8×8 + *Fill grid* = 64/64; adding a column and clicking a new cell stayed at 64 with "Slot limit reached". A 3×2 custom subset with 3 tiles filled, then edited to 4×2 with *Fill grid*: the 3 tiles stayed at (0,0)–(2,0) and the new slots were empty; one undo entry. The tile-bar ▦ button reopens the wizard on the first empty slot. No console errors.
+- Not verified: the desktop (Tauri) build and a real mouse pass. Checks used synthetic clicks and keys.

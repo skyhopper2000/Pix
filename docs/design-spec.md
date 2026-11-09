@@ -109,7 +109,7 @@ A subset is a typed, organized view of tiles from its parent tileset, and each o
 | 16 edge | 16 fixed slots, 2 terrains | Edge Wang set |
 | Custom template | User-defined slot grid with Wang bits per slot | Corner, edge or mixed, as defined |
 
-**Filling slots.** Template slots start empty and show a faint diagram of the slot's expected shape (which corners or edges are terrain A or B). The user drags a tile from the parent's tile bar into a slot, or selects a slot and draws a new tile in it. The app never fills a slot by itself.
+**Filling slots.** Template slots start empty and show a faint diagram of the slot's expected shape (which corners or edges are terrain A or B). The user drags a tile from the parent's tile bar into a slot, or selects a slot and draws a new tile in it. After New Subset (or with Fill Subset from Parent), a wizard walks the slots one at a time and the user clicks a parent tile for each one, skipping any slot and returning to any slot later. The app never fills a slot by itself: every assignment is a user click. Custom templates hold up to 64 slots and can be edited after creation; tiles stay on the slot at the same grid position.
 
 **Terrains.** Each templated subset names its two terrains (for example *grass* and *dirt*) and gives each a color. Names drive auto-naming (`grass_dirt_NE`) and become Wang color names in the exported `.tsx`. Which terrain pairs get transition sets is entirely up to the user.
 

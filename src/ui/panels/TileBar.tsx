@@ -98,6 +98,14 @@ export function TileBar() {
         <span className="spacer" />
         {subset && (
           <>
+            <IconButton title="Fill subset from parent tiles (click a tile for each slot)" onClick={() => ui.set({ dialog: { kind: "fillSubset", subsetId: subset.id, start: ui.get().slotIndex ?? undefined } })} disabled={ts.tileOrder.length === 0}>
+              ▦
+            </IconButton>
+            {subset.type === "custom" && (
+              <IconButton title="Edit custom template (add or remove slots)" onClick={() => ui.set({ dialog: { kind: "editTemplate", subsetId: subset.id } })}>
+                ⊞
+              </IconButton>
+            )}
             {templated && (
               <IconButton title="Edit terrains" onClick={() => ui.set({ dialog: { kind: "terrains", subsetId: subset.id } })}>
                 ◑
@@ -127,7 +135,11 @@ export function TileBar() {
             <div className="section-title">
               {subset.name} {templated ? `· ${subset.terrains[0].name} / ${subset.terrains[1].name}` : ""} · {subset.cells.filter(Boolean).length}/{subset.cells.length} filled
             </div>
-            <div className="hint pad">Drag tiles from the parent below. Click an empty slot and draw in the editor to create a new tile there. Right-click removes a tile from the subset (it stays in the parent).</div>
+            <div className="hint pad">
+              <button type="button" className="link" onClick={() => ui.set({ dialog: { kind: "fillSubset", subsetId: subset.id, start: ui.get().slotIndex ?? undefined } })}>
+                Fill slot by slot…
+              </button>{" "}
+              or drag tiles from the parent below. Click an empty slot and draw in the editor to create a new tile there. Right-click removes a tile from the subset (it stays in the parent).</div>
             <SubsetGrid ts={ts} subset={subset} />
             <div className="section-title">Parent tiles</div>
           </>

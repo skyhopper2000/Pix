@@ -129,6 +129,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 10 | `step/10-acceptance` | Walk through Jane's session (spec §Acceptance) end to end, fix gaps | ready for review (Tiled check pending) |
 | 11 | `step/11-v1-adjustments` | Small v1 fixes from hands-on use: Save As names the project (native Save dialog); import a palette from an image; rename to Pix + pixel-art icons and logo | in progress |
 | 12 | `step/12-large-image-import` (from `main`) | Large-image import: streaming PNG decode, in-place cell hashing, batched tile insert, decode/slice in a Web Worker | ready for review (worker not yet run in the Tauri build) |
+| 14 | `step/14-subset-wizard` (from `main`) | Fill Subset wizard (click a parent tile per slot, skip, go back), clearer custom template editor (+/− grid, slot count, Fill grid, 64-slot cap), Edit Custom Template for existing subsets | ready for review (cherry-picks the step 13 import repair) |
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
 
@@ -139,6 +140,7 @@ Keep this table current: `planned` → `in progress` → `ready for review` (or 
 - Load an export in Tiled and paint with the terrain brush (spec acceptance step 10).
 - Decide the open questions above.
 - Hands-on pass with a real mouse/pen. Automated checks used synthetic events.
+- Step 14 was branched from `main` and cherry-picks `c9b71fa` (import repair) from step 13. Merging both touches this file's build-plan table; keep both rows.
 - Step 12 was branched from `main`, not stacked on step 11: merging it after step 11 will conflict in `ImportDialog.tsx` (step 11 moved `decodeImage.ts` to `src/platform/`; point `importClient.ts` at the new path) and in this file's build-plan table. Run `npm run tauri build` and import a large PNG in the desktop app to check the worker in WebView2.
 
 ## Dev tips

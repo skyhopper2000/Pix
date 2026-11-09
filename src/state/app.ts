@@ -20,6 +20,8 @@ export type Dialog =
   | { kind: "nearDup"; threshold?: number }
   | { kind: "rename"; what: "tile" | "tileset" | "subset" | "preview" | "project"; id: Id; current: string }
   | { kind: "terrains"; subsetId: Id }
+  | { kind: "fillSubset"; subsetId: Id; start?: number }
+  | { kind: "editTemplate"; subsetId: Id }
   | { kind: "resize"; what: "subset" | "preview"; id: Id; cols: number; rows: number }
   | { kind: "message"; title: string; body: string[] }
   | { kind: "confirm"; title: string; body: string; confirmLabel: string; onConfirm: () => void };
