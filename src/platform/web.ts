@@ -109,7 +109,8 @@ async function writeTree(root: FSDirHandle, files: FileTree) {
   for (const path of existing.keys()) {
     if (files.has(path)) continue;
     const slash = path.lastIndexOf("/");
-    if (slash < 0 || !managedDirs.has(path.slice(0, slash))) continue;
+    // layers/ is always managed: a tile that went back to one layer leaves its whole folder unused.
+    if (slash < 0 || !(managedDirs.has(path.slice(0, slash)) || path.startsWith("layers/"))) continue;
     const dir = await subdir(root, path.slice(0, slash).split("/"));
     await dir.removeEntry(path.slice(slash + 1));
   }

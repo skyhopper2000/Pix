@@ -1,5 +1,5 @@
 import * as A from "../state/actions";
-import { activePreview, activeSubset, activeTileset, history, ui, type ToolId } from "../state/app";
+import { activeLayer, activePreview, activeSubset, activeTile, activeTileset, history, ui, type ToolId } from "../state/app";
 import { nameTilesFromSlots } from "../core/ops";
 import { templateOf } from "../core/templates";
 import type { Transform } from "../core/tools";
@@ -12,7 +12,7 @@ import type { Transform } from "../core/tools";
 export interface Command {
   id: string;
   label: string;
-  menu: "File" | "Edit" | "Tileset" | "View" | "Tools";
+  menu: "File" | "Edit" | "Tileset" | "Layer" | "View" | "Tools";
   shortcut?: string;
   run: () => void;
   enabled?: () => boolean;
@@ -21,6 +21,14 @@ export interface Command {
   sep?: boolean;
   /** Shortcut alias only; not listed in menus or the palette. */
   hidden?: boolean;
+}
+
+function canMoveLayer(delta: number) {
+  const t = activeTile();
+  const l = activeLayer(t);
+  if (!t?.layers || !l) return false;
+  const to = l.index + delta;
+  return to >= 0 && to < t.layers.length;
 }
 
 /** Set by the tile editor while it is mounted, for selection clipboard commands. */
@@ -177,6 +185,31 @@ export const commands: Command[] = [
     },
   },
 
+  // Layer (acts on the tile open in the editor)
+  { id: "layer.add", label: "New Layer", menu: "Layer", enabled: () => !!activeTile(), run: () => A.addLayer() },
+  { id: "layer.duplicate", label: "Duplicate Layer", menu: "Layer", enabled: () => !!activeTile(), run: () => A.duplicateLayer() },
+  { id: "layer.rename", label: "Rename Layer…", menu: "Layer", enabled: () => !!activeTile()?.layers, run: () => A.renameActiveLayer() },
+  { id: "layer.delete", label: "Delete Layer", menu: "Layer", enabled: () => !!activeTile()?.layers, run: () => A.deleteLayer() },
+  { id: "layer.up", label: "Move Layer Up", menu: "Layer", sep: true, enabled: () => canMoveLayer(1), run: () => A.moveLayer(1) },
+  { id: "layer.down", label: "Move Layer Down", menu: "Layer", enabled: () => canMoveLayer(-1), run: () => A.moveLayer(-1) },
+  {
+    id: "layer.hide",
+    label: "Hide Layer (view only)",
+    menu: "Layer",
+    sep: true,
+    enabled: () => !!activeTile(),
+    checked: () => { const l = activeLayer(activeTile()); return !!l && ui.get().hiddenLayers.has(l.layer.id); },
+    run: () => { const l = activeLayer(activeTile()); if (l) A.toggleLayerHidden(l.layer.id); },
+  },
+  {
+    id: "layer.lock",
+    label: "Lock Layer",
+    menu: "Layer",
+    enabled: () => !!activeTile(),
+    checked: () => { const l = activeLayer(activeTile()); return !!l && ui.get().lockedLayers.has(l.layer.id); },
+    run: () => { const l = activeLayer(activeTile()); if (l) A.toggleLayerLocked(l.layer.id); },
+  },
+
   // View
   { id: "view.palette", label: "Command Palette…", menu: "View", shortcut: "Ctrl+Shift+P", run: () => ui.set({ commandPalette: true }) },
   { id: "view.reset", label: "Reset Layout", menu: "View", run: () => layoutBridge.reset?.(), sep: true },
@@ -185,6 +218,7 @@ export const commands: Command[] = [
   { id: "view.showProject", label: "Show Project", menu: "View", run: () => layoutBridge.show?.("project") },
   { id: "view.showTiles", label: "Show Tiles", menu: "View", run: () => layoutBridge.show?.("tiles") },
   { id: "view.showPalette", label: "Show Palette", menu: "View", run: () => layoutBridge.show?.("palette") },
+  { id: "view.showLayers", label: "Show Layers", menu: "View", run: () => layoutBridge.show?.("layers") },
   { id: "view.grid", label: "Preview Grid", menu: "View", shortcut: "Ctrl+G", sep: true, run: () => ui.set((s) => ({ previewGrid: !s.previewGrid })), checked: () => ui.get().previewGrid },
   { id: "view.highlight", label: "Highlight Uses of Selected Tile", menu: "View", shortcut: "Ctrl+H", run: () => ui.set((s) => ({ highlightUses: !s.highlightUses })), checked: () => ui.get().highlightUses },
   { id: "view.guides", label: "Slot Guides", menu: "View", run: () => ui.set((s) => ({ slotGuides: !s.slotGuides })), checked: () => ui.get().slotGuides },
@@ -210,7 +244,7 @@ export const commands: Command[] = [
   { id: "tool.swap", label: "Swap Colors", menu: "Tools", shortcut: "X", run: () => ui.set((s) => ({ primary: s.secondary, secondary: s.primary })) },
 ];
 
-export const MENUS = ["File", "Edit", "Tileset", "View", "Tools"] as const;
+export const MENUS = ["File", "Edit", "Tileset", "Layer", "View", "Tools"] as const;
 
 /** "Ctrl+Shift+E" style string for a keyboard event. */
 export function eventShortcut(e: KeyboardEvent): string {

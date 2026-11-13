@@ -1,6 +1,7 @@
 import { parseHex, toHex } from "../color";
 import { isValidId, newId } from "../ids";
-import type { GridType, Preview, Project, Subset, SubsetType, Template, Terrain, Tile, TileId, Tileset } from "../model";
+import { flattenLayers } from "../layers";
+import type { BlendMode, GridType, Layer, Preview, Project, Subset, SubsetType, Template, Terrain, Tile, TileId, Tileset } from "../model";
 import { createPixels } from "../pixels";
 import { decodePng, encodePng } from "../png";
 import { templateOf, validateTemplate } from "../templates";
@@ -8,13 +9,15 @@ import { templateOf, validateTemplate } from "../templates";
 /**
  * Project folder format:
  *   project.json   structure (tilesets, subsets, slots, terrains, previews, palette)
- *   tiles/<id>.png one PNG per tile, named by its stable id
+ *   tiles/<id>.png one PNG per tile, named by its stable id (the flattened composite for layered tiles)
+ *   layers/<tileId>/<layerId>.png  one PNG per layer of a layered tile (format version 2)
  * Loading is forgiving: problems become warnings and the rest still loads.
  */
 
 export const PROJECT_FILE = "project.json";
 export const FORMAT = "tilestudio-project";
-export const FORMAT_VERSION = 1;
+/** Newest format this build reads. Files are written as version 1 unless a tile has layers (then 2). */
+export const FORMAT_VERSION = 2;
 export const PROJECT_EXT = ".tilestudio";
 
 export type FileTree = Map<string, Uint8Array>;
@@ -45,7 +48,7 @@ interface JsonTileset {
   tileWidth: number;
   tileHeight: number;
   grid: GridType;
-  tiles: { id: string; name: string }[];
+  tiles: { id: string; name: string; layers?: { id: string; name: string; blend: BlendMode }[] }[];
   subsets: JsonSubset[];
   previews: JsonPreview[];
 }
@@ -59,6 +62,7 @@ interface JsonProject {
 }
 
 const tilePath = (id: TileId) => `tiles/${id}.png`;
+const layerPath = (tileId: TileId, layerId: string) => `layers/${tileId}/${layerId}.png`;
 
 const pvToJson = (pv: Preview): JsonPreview => ({ id: pv.id, name: pv.name, cols: pv.cols, rows: pv.rows, cells: pv.cells });
 
@@ -73,7 +77,7 @@ export function serializeProject(p: Project, preserved?: PreservedTiles): FileTr
   const files: FileTree = new Map();
   const json: JsonProject = {
     format: FORMAT,
-    version: FORMAT_VERSION,
+    version: p.tilesets.some((ts) => ts.tileOrder.some((id) => ts.tiles[id].layers)) ? 2 : 1,
     name: p.name,
     palette: { colors: p.palette.colors.map(toHex), locked: p.palette.locked },
     tilesets: p.tilesets.map((ts) => ({
@@ -82,7 +86,10 @@ export function serializeProject(p: Project, preserved?: PreservedTiles): FileTr
       tileWidth: ts.tileWidth,
       tileHeight: ts.tileHeight,
       grid: ts.grid,
-      tiles: ts.tileOrder.map((id) => ({ id, name: ts.tiles[id].name })),
+      tiles: ts.tileOrder.map((id) => {
+        const t = ts.tiles[id];
+        return t.layers ? { id, name: t.name, layers: t.layers.map((l) => ({ id: l.id, name: l.name, blend: l.blend })) } : { id, name: t.name };
+      }),
       subsets: ts.subsets.map((s) => ({
         id: s.id,
         name: s.name,
@@ -103,6 +110,7 @@ export function serializeProject(p: Project, preserved?: PreservedTiles): FileTr
       const keep = preserved?.get(id);
       if (keep && keep.placeholder === ts.tiles[id].pixels) files.set(tilePath(id), keep.bytes);
       else files.set(tilePath(id), encodePng(ts.tiles[id].pixels, ts.tileWidth, ts.tileHeight));
+      for (const l of ts.tiles[id].layers ?? []) files.set(layerPath(id, l.id), encodePng(l.pixels, ts.tileWidth, ts.tileHeight));
     }
   }
   return files;
@@ -142,6 +150,32 @@ export function deserializeProject(files: FileTree): LoadResult {
   const seenTileIds = new Set<string>();
   const preserved: PreservedTiles = new Map();
 
+  /** A layered tile's layers, or null to load it plain from its composite (with a warning when something was wrong). */
+  const readLayers = (v: unknown, tileId: TileId, name: string, w: number, h: number): Layer[] | null => {
+    if (v === undefined) return null;
+    const list = Array.isArray(v) ? v : [];
+    const out: Layer[] = [];
+    for (const l of list) {
+      const png = isObj(l) && typeof l.id === "string" && isValidId(l.id) ? files.get(layerPath(tileId, l.id)) : undefined;
+      let img: { width: number; height: number; pixels: Uint8ClampedArray } | null = null;
+      try {
+        img = png ? decodePng(png) : null;
+      } catch {
+        img = null;
+      }
+      if (!isObj(l) || !img || img.width !== w || img.height !== h) {
+        warnings.push(`Tile "${name}" has a missing or unreadable layer; it was loaded as one flat layer from its saved image.`);
+        return null;
+      }
+      out.push({ id: l.id as string, name: str(l.name, `Layer ${out.length + 1}`), blend: l.blend === "normal" ? "normal" : "replace", pixels: img.pixels });
+    }
+    if (out.length < 2) {
+      if (list.length) warnings.push(`Tile "${name}" listed fewer than two layers; it was loaded as one flat layer.`);
+      return null;
+    }
+    return out;
+  };
+
   const tilesets: Tileset[] = (Array.isArray(json.tilesets) ? json.tilesets : []).filter(isObj).map((t) => {
     const tileWidth = posInt(t.tileWidth, 16);
     const tileHeight = posInt(t.tileHeight, tileWidth);
@@ -175,7 +209,8 @@ export function deserializeProject(files: FileTree): LoadResult {
           preserved.set(id, { placeholder: pixels, bytes: png });
         }
       }
-      tiles[id] = { id, name, pixels };
+      const layers = readLayers(entry.layers, id, name, tileWidth, tileHeight);
+      tiles[id] = layers ? { id, name, pixels: flattenLayers(layers, tileWidth, tileHeight), layers } : { id, name, pixels };
       tileOrder.push(id);
     }
 

@@ -13,6 +13,7 @@ Pix is a Windows desktop app (Tauri 2 + React + TypeScript, Canvas 2D) that slic
 - ✅ Allowed: slicing, *exact* duplicate removal, *proposing* near-duplicate merges that the user confirms, auto-naming, layout, scaling and extrusion **at export time only**, user-driven tools (incl. lighten/darken, pixel-perfect stroke cleanup on the stroke being drawn).
 - ❌ Forbidden: autotile synthesis, filling empty template slots, seam warnings, auto-detecting flipped/rotated duplicates, any AI/generative feature, any automatic merge without a click, any change to stored tile pixels that the user didn't directly cause.
 - Overlays (grid, slot guides, highlights, neighbour context) are drawn on top of the canvas and are **never** written into tile pixels.
+- **Layers** (human decision, 2026-11-12): flattening a tile's user-drawn layers into its composite for display and export is allowed. Each layer's blend mode is *Replace* by default (never invents a colour) or *Normal* alpha blending, which the user opts into per layer. Nothing merges layers automatically.
 
 If a task seems to require breaking the creed, stop and ask the human.
 
@@ -58,6 +59,7 @@ src/
     ids.ts         stable random IDs
     pixels.ts      RGBA buffer helpers (get/set/compare/hash/blit/scale/extrude)
     color.ts       packed RGBA <-> hex, brightness, palette stepping
+    layers.ts      tile layers: flattenLayers (replace / normal blend), layersOf, layerPixels, withLayers
     ops.ts         pure project operations (add/delete tile, set slot, stamp…), each returns a new Project
     import/        slicing, exact dedupe, near-duplicate grouping, naming, palette extraction
     templates/     subset templates: blob47, corner16, edge16, custom; Wang ids, slot names
@@ -91,7 +93,8 @@ Rules:
 - **Exact duplicate** = identical RGBA bytes. Fully transparent pixels compare equal whatever their RGB values (alpha 0 is normalized to `0,0,0,0` **only for comparison**, never written back).
 - **Empty tile** = every pixel fully transparent, or every pixel the same color.
 - **Near-duplicates**: the metric is the fraction of differing pixels. Grouping only proposes; merging needs a user click and remaps all references to the surviving tile.
-- **Flip/rotate**: never detected. Flipped copies are separate tiles. The user-driven Flip/Rotate buttons are index permutations only (every output pixel is a byte-exact copy of an input pixel). Rotating a non-square selection lifts and drops it like a move (old area cleared, opaque pixels placed); whole non-square tiles can't be rotated.
+- **Flip/rotate**: never detected. Flipped copies are separate tiles.
+- **Layers**: `Tile.layers?` is bottom → top. Absent = one implicit layer (`tile.pixels`, id `base`); present = at least 2 layers and `tile.pixels` is always the flattened composite of **every** layer (hidden/locked are view-only session UI state). Deleting down to one layer turns the tile back into a plain tile. `setTilePixels` / `setManyTilePixels` on a layered tile write the bottom layer (map-preview strokes); editor tools use `setLayerPixels` on the active layer. Files: `tiles/<id>.png` stays the composite, layers go to `layers/<tileId>/<layerId>.png`; `project.json` is written as version 2 only when some tile has layers. A missing layer file loads the tile flat from its composite, with a warning. The user-driven Flip/Rotate buttons are index permutations only (every output pixel is a byte-exact copy of an input pixel). Rotating a non-square selection lifts and drops it like a move (old area cleared, opaque pixels placed); whole non-square tiles can't be rotated.
 - **Wang ids** (Tiled `.tsx`, 8 comma-separated values, clockwise from top): `top, top-right, right, bottom-right, bottom, bottom-left, left, top-left`. Terrain A = color 1, terrain B = color 2, 0 = unused. Corner sets use only indices 1,3,5,7; edge sets only 0,2,4,6; mixed (blob) uses all 8.
 - **Templates**: `blob47` has 8×6 cells holding the 47 blob masks in ascending order of reduced 8-bit mask (bits N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128; a corner bit counts only if both adjacent edges are set); the 48th cell is not a slot. `corner16`: 4×4, index = NE·1 + SE·2 + SW·4 + NW·8. `edge16`: 4×4, index = N·1 + E·2 + S·4 + W·8. A set bit means terrain B.
 - **Slot auto-names**: `{terrainA}_{terrainB}_{dirs}`, where `dirs` lists the compass points that are terrain B in N, NE, E, SE, S, SW, W, NW order, joined by `-` (e.g. `grass_dirt_NE`, `grass_dirt_N-NE-E`), `all` when every position is B, `none` when none is.
@@ -133,6 +136,7 @@ The spec left these open. The provisional choice is implemented. Change it here 
 | 14 | `step/14-subset-wizard` (from `main`) | Fill Subset wizard (click a parent tile per slot, skip, go back), clearer custom template editor (+/− grid, slot count, Fill grid, 64-slot cap), Edit Custom Template for existing subsets | merged (skyhopper2000/Pix#5) |
 | 15 | `step/15-v2-final-fixes` (from `main`) | Last v2 step: Swap Colors button + right-click hint in the Palette panel; *Edit › Preferences…* (theme, font size, pixel-perfect, slot guides, preview grid, highlight uses, rebindable shortcuts), saved to localStorage | ready for review |
 | 16 | `step/16-transform-and-context-menus` (on 15) | v2.5: Flip H/V and Rotate CW/CCW toolbar buttons (selection or whole tile, pure pixel permutations); right-click menus in Tiles (rename, delete) and Project (tileset: rename, new subset, export; subset: rename, export) | ready for review |
+| 17 | `step/17-tile-layers` (on 16) | v2.5: per-tile layers (design doc weighs four ideas), Replace/Normal blend per layer, Layers dock panel + Layer menu, view-only hide/lock, active-layer drawing/selection/transform, preview strokes on the base layer, project format v2 with `layers/` | ready for review (save/reopen in the app not driven by an agent; round trip unit-tested) |
 
 
 Keep this table current: `planned` → `in progress` → `ready for review` (or `blocked: reason`).
@@ -146,6 +150,7 @@ Keep this table current: `planned` → `in progress` → `ready for review` (or 
 - Hands-on pass with a real mouse/pen. Automated checks used synthetic events.
 - Steps 11 and 12 are merged; the merge left broken imports in `importClient.ts` / `ImportDialog.tsx`, fixed on `step/13-drag-and-drop`. Import a large PNG in the desktop app to check the worker in WebView2.
 - Step 13: in the desktop app, drag a tile into a subset slot, between slots, and drag a panel tab to another dock spot.
+- Step 17: in the desktop app, add layers to a tile, save, reopen, and export; check the exported sheet matches the tile bar. Decide whether a hidden layer should dim instead of vanish in the editor.
 - Step 15: in the desktop app, open *Edit › Preferences…*, rebind a shortcut, change the font size and restart to confirm preferences persist in WebView2.
 - Step 16: in the desktop app, right-click a tile and a tileset and check that Pix's menu shows instead of the WebView2 browser menu, and run *Export Tileset…* through to a saved zip. Flip/rotate buttons use text glyphs until pixel-art icons are drawn.
 

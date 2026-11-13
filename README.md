@@ -24,6 +24,7 @@ Pix never generates, alters, "fixes" or judges your art. It slices, sorts, names
 - **Projects and tilesets.** A project has one shared palette and any number of tilesets. Each tileset owns its tiles and has one tile size.
 - **Import.** Slice any image into tiles with a tile size, offset and spacing. Exact duplicates collapse to one tile, and the original image is rebuilt as a map preview. Optionally extract the image's colors into your palette. You can review near-duplicates side by side, and nothing merges unless you click.
 - **Tile editor.** Pencil (with pixel-perfect strokes), eraser, fill (contiguous/global), line, rectangle, ellipse, lighten/darken, selection + move, and color picker. *Flip* (horizontal/vertical) and *Rotate* (clockwise/counter-clockwise) buttons act on the selection, or the whole tile when nothing is selected; they only move pixels, never change a colour. The adjoining tiles show dimmed around the edges so you can see how your tile meets its neighbours.
+- **Layers.** Any tile can hold a stack of layers (*Layer › New Layer*, or ＋ in the *Layers* panel), so outline, fill and shading stay separate and a sketch layer can sit under your clean lines. Drawing, selection, paste and flip/rotate act on the active layer; the colour picker and Copy read the whole tile. Each layer above the bottom one has a blend mode: **Replace** (default: any visible pixel covers what's below) or **Normal** (semi-transparent pixels blend). Hide and lock are view-only helpers for the current session: tiles, previews and exports always show every layer. Drawing in the map preview goes to the bottom layer. Tiles without extra layers work exactly as before.
 - **Right-click menus.** In *Tiles*, right-click a tile to rename or delete it. In *Project*, right-click a tileset to rename it, add a subset or export just that tileset; right-click a subset to rename or export it.
 - **Linked tiles.** Every tile exists once. Subsets and previews point to it, so an edit anywhere shows up everywhere, live.
 - **Subsets.** Organize tiles into typed sets, each exported as its own Tiled sheet:
@@ -89,9 +90,14 @@ A project is a folder, which keeps it readable, git-friendly and recoverable:
 ```
 MyGame.tilestudio/
 ├── project.json   tilesets, subsets, slots, terrains, previews, palette
-└── tiles/
-    └── 7f3a….png  one PNG per tile, named by a stable ID
+├── tiles/
+│   └── 7f3a….png  one PNG per tile, named by a stable ID (the flattened image for layered tiles)
+└── layers/        only for tiles with layers
+    └── 7f3a…/
+        └── 91bc….png  one PNG per layer
 ```
+
+A project with layered tiles is saved as format version 2, which older builds of Pix refuse to open rather than silently dropping the layers.
 
 ## Status
 

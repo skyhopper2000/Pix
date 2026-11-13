@@ -8,6 +8,7 @@ import { iconCssPx } from "./icons";
 import { loadLayout, PANELS, resetLayout, saveLayout } from "./layout";
 import { CommandPalette, MenuBar } from "./MenuBar";
 import { EditorPanel } from "./panels/EditorPanel";
+import { LayersPanel } from "./panels/LayersPanel";
 import { PalettePanel } from "./panels/PalettePanel";
 import { PreviewPanel } from "./panels/PreviewPanel";
 import { ProjectTree } from "./panels/ProjectTree";
@@ -26,6 +27,8 @@ function factory(node: TabNode) {
       return <TileBar />;
     case "palette":
       return <PalettePanel />;
+    case "layers":
+      return <LayersPanel />;
     default:
       return null;
   }

@@ -110,4 +110,45 @@ describe("project io", () => {
     expect(projectNameFromFolder("plain")).toBe("plain");
     expect(projectNameFromFolder(projectFolderName("Round Trip"))).toBe("Round Trip");
   });
+
+  it("writes version 1 when no tile has layers", () => {
+    const json = JSON.parse(new TextDecoder().decode(serializeProject(sample()).get(PROJECT_FILE)!));
+    expect(json.version).toBe(1);
+    expect(json.tilesets[0].tiles[0].layers).toBeUndefined();
+  });
+
+  it("round-trips layered tiles (version 2, composite + layer files)", () => {
+    let p = sample();
+    const ts = p.tilesets[0];
+    const id = ts.tileOrder[0];
+    const r = ops.addLayer(p, ts.id, id);
+    const top = createPixels(4, 4);
+    setPixel(top, 4, 0, 0, pack(200, 0, 0, 100));
+    p = ops.setLayerPixels(r.project, ts.id, id, r.layerId!, top);
+    p = ops.setLayerBlend(p, ts.id, id, r.layerId!, "normal");
+    const files = serializeProject(p);
+    const json = JSON.parse(new TextDecoder().decode(files.get(PROJECT_FILE)!));
+    expect(json.version).toBe(2);
+    expect(json.tilesets[0].tiles[0].layers.map((l: { blend: string }) => l.blend)).toEqual(["replace", "normal"]);
+    expect(files.has(`layers/${id}/${r.layerId}.png`)).toBe(true);
+    expect(files.has(`tiles/${id}.png`)).toBe(true);
+    const back = deserializeProject(files);
+    expect(back.warnings).toEqual([]);
+    expect(dump(back.project)).toBe(dump(p));
+  });
+
+  it("loads a layered tile flat from its composite when a layer file is missing", () => {
+    let p = sample();
+    const ts = p.tilesets[0];
+    const id = ts.tileOrder[0];
+    const r = ops.addLayer(p, ts.id, id);
+    p = r.project;
+    const files = serializeProject(p);
+    files.delete(`layers/${id}/${r.layerId}.png`);
+    const back = deserializeProject(files);
+    const t = back.project.tilesets[0].tiles[id];
+    expect(t.layers).toBeUndefined();
+    expect(Array.from(t.pixels)).toEqual(Array.from(p.tilesets[0].tiles[id].pixels));
+    expect(back.warnings.join(" ")).toMatch(/layer/);
+  });
 });

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toHex } from "../../core/color";
 import { previewPng, safeName } from "../../core/export";
 import type { Color, Preview, TileId, Tileset } from "../../core/model";
+import { layerPixels } from "../../core/layers";
 import * as ops from "../../core/ops";
 import { getPixel, setPixel } from "../../core/pixels";
 import { floodFill, isLCorner, linePoints, shadeColor, type Pt } from "../../core/tools";
@@ -134,7 +135,8 @@ export function PreviewPanel() {
     const lx = p.x % tw;
     const ly = p.y % th;
     if (!gs.work.has(id)) {
-      const px = history.project.tilesets.find((x) => x.id === ts.id)!.tiles[id].pixels;
+      // Layered tiles: preview strokes edit the base (bottom) layer; setManyTilePixels writes it back there.
+      const px = layerPixels(history.project.tilesets.find((x) => x.id === ts.id)!.tiles[id], 0);
       gs.base.set(id, px);
       gs.work.set(id, px.slice());
     }
