@@ -17,7 +17,7 @@ export type Dialog =
   | { kind: "newSubset" }
   | { kind: "newPreview" }
   | { kind: "import"; fileName: string; bytes: Uint8Array }
-  | { kind: "export" }
+  | { kind: "export"; /** Pre-selected scope (right-click › Export Tileset / Subset). */ scope?: Id[]; title?: string }
   | { kind: "nearDup"; threshold?: number }
   | { kind: "rename"; what: "tile" | "tileset" | "subset" | "preview" | "project"; id: Id; current: string }
   | { kind: "terrains"; subsetId: Id }

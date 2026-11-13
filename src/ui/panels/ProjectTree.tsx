@@ -1,6 +1,7 @@
 import type { Subset } from "../../core/model";
 import * as A from "../../state/actions";
 import { history, ui, useProject, useUi } from "../../state/app";
+import { ContextMenu, useContextMenu } from "../ContextMenu";
 import { IconButton } from "../widgets";
 
 const TYPE_LABEL: Record<Subset["type"], string> = {
@@ -16,9 +17,11 @@ export function ProjectTree() {
   const tilesetId = useUi((s) => s.tilesetId);
   const subsetId = useUi((s) => s.subsetId);
   const previewId = useUi((s) => s.previewId);
+  const cm = useContextMenu();
 
   return (
     <div className="panel project-tree">
+      <ContextMenu menu={cm.menu} onClose={cm.close} />
       <div className="panel-toolbar">
         <span className="tree-project" title="Double-click to rename" onDoubleClick={() => ui.set({ dialog: { kind: "rename", what: "project", id: "", current: p.name } })}>
           {p.name}
@@ -42,7 +45,22 @@ export function ProjectTree() {
           const active = ts.id === tilesetId;
           return (
             <li key={ts.id} role="treeitem" aria-expanded={active}>
-              <div className={"tree-row ts" + (active && !subsetId ? " sel" : "")} onClick={() => (active ? A.selectSubset(null) : A.selectTileset(ts.id))} onDoubleClick={() => ui.set({ dialog: { kind: "rename", what: "tileset", id: ts.id, current: ts.name } })}>
+              <div className={"tree-row ts" + (active && !subsetId ? " sel" : "")} onClick={() => (active ? A.selectSubset(null) : A.selectTileset(ts.id))} onDoubleClick={() => ui.set({ dialog: { kind: "rename", what: "tileset", id: ts.id, current: ts.name } })}
+                onContextMenu={(e) =>
+                  cm.open(e, [
+                    { label: "Rename…", run: () => ui.set({ dialog: { kind: "rename", what: "tileset", id: ts.id, current: ts.name } }) },
+                    {
+                      label: "New Subset…",
+                      run: () => {
+                        // New Subset adds to the active tileset, so make this one active first.
+                        if (ui.get().tilesetId !== ts.id) A.selectTileset(ts.id);
+                        ui.set({ dialog: { kind: "newSubset" } });
+                      },
+                    },
+                    { label: "Export Tileset…", sep: true, run: () => A.exportSet(ts.id) },
+                  ])
+                }
+              >
                 <span className="tree-icon">▦</span>
                 <span className="tree-name">{ts.name}</span>
                 <span className="tree-meta">
@@ -71,6 +89,12 @@ export function ProjectTree() {
                         ui.set({ previewId: s.preview.id, previewCell: null });
                       }}
                       onDoubleClick={() => ui.set({ dialog: { kind: "rename", what: "subset", id: s.id, current: s.name } })}
+                      onContextMenu={(e) =>
+                        cm.open(e, [
+                          { label: "Rename…", run: () => ui.set({ dialog: { kind: "rename", what: "subset", id: s.id, current: s.name } }) },
+                          { label: "Export Subset…", sep: true, run: () => A.exportSet(s.id) },
+                        ])
+                      }
                     >
                       <span className="tree-icon">◫</span>
                       <span className="tree-name">{s.name}</span>

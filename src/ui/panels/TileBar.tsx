@@ -6,6 +6,7 @@ import { history, openTile, ui, useProject, useUi, activeTileset } from "../../s
 import { TILE_DRAG_TYPE } from "../render";
 import { EmptyState, IconButton, TileThumb } from "../widgets";
 import { SubsetGrid } from "./SubsetGrid";
+import { ContextMenu, useContextMenu } from "../ContextMenu";
 
 /** Starts a drag carrying a tile id (dropped on subset slots, preview cells or the tile bar). */
 export function dragTile(e: React.DragEvent, tileId: TileId, from: string) {
@@ -29,8 +30,10 @@ export const isTileDrag = (e: React.DragEvent) => e.dataTransfer.types.includes(
 export function ParentTiles({ ts, thumb = 40 }: { ts: Tileset; thumb?: number }) {
   const tileId = useUi((s) => s.tileId);
   const [dropAt, setDropAt] = useState<number | null>(null);
+  const cm = useContextMenu();
   return (
     <div className="tile-grid" role="listbox" aria-label="Tiles">
+      <ContextMenu menu={cm.menu} onClose={cm.close} />
       {ts.tileOrder.map((id, i) => {
         const t = ts.tiles[id];
         return (
@@ -59,6 +62,12 @@ export function ParentTiles({ ts, thumb = 40 }: { ts: Tileset; thumb?: number })
             }}
             onClick={() => openTile(id, { slotIndex: null })}
             onDoubleClick={() => ui.set({ dialog: { kind: "rename", what: "tile", id, current: t.name } })}
+            onContextMenu={(e) =>
+              cm.open(e, [
+                { label: "Rename Tile…", run: () => ui.set({ dialog: { kind: "rename", what: "tile", id, current: t.name } }) },
+                { label: "Delete Tile", danger: true, run: () => A.deleteTileById(id) },
+              ])
+            }
           >
             <TileThumb pixels={t.pixels} w={ts.tileWidth} h={ts.tileHeight} size={thumb} />
             <span className="tile-name">{t.name}</span>

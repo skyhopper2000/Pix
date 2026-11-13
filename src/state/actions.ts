@@ -194,10 +194,15 @@ export function duplicateActiveTile() {
 }
 
 export function deleteActiveTile() {
-  const ts = activeTileset();
   const id = ui.get().tileId;
-  if (!ts || !id) return;
-  const t = ts.tiles[id];
+  if (id) deleteTileById(id);
+}
+
+/** Deletes a tile everywhere (asks first when a subset or preview uses it). */
+export function deleteTileById(id: TileId) {
+  const ts = activeTileset();
+  const t = ts?.tiles[id];
+  if (!ts || !t) return;
   const uses = ops.tileUsage(ts, id);
   const where = [...uses.subsets.map((s) => `subset "${s.name}"`), ...uses.previews.map((v) => `preview "${v.name}"`)];
   const doIt = () => {
@@ -234,6 +239,18 @@ export function rename(what: "tile" | "tileset" | "subset" | "preview" | "projec
         return ts ? ops.renamePreview(p, ts.id, id, n) : p;
     }
   });
+}
+
+/** Opens the export dialog scoped to one tileset (its parent sheet and every subset) or one subset. */
+export function exportSet(id: Id) {
+  const p = history.project;
+  const ts = p.tilesets.find((t) => t.id === id);
+  if (ts) {
+    ui.set({ dialog: { kind: "export", scope: [ts.id, ...ts.subsets.map((s) => s.id)], title: `Export Tileset "${ts.name}"` } });
+    return;
+  }
+  const sub = p.tilesets.flatMap((t) => t.subsets).find((s) => s.id === id);
+  if (sub) ui.set({ dialog: { kind: "export", scope: [sub.id], title: `Export Subset "${sub.name}"` } });
 }
 
 export function selectTileset(id: Id) {
