@@ -3,12 +3,19 @@ import { toHex } from "../../core/color";
 import type { Color, Preview, Project, TileId, Tileset } from "../../core/model";
 import * as ops from "../../core/ops";
 import { createPixels, crop, getPixel, setPixel } from "../../core/pixels";
-import { boxFrom, brushPoints, ellipsePoints, floodFill, isLCorner, linePoints, plot, rectPoints, shadeColor, type Pt } from "../../core/tools";
+import { boxFrom, brushPoints, ellipsePoints, floodFill, isLCorner, linePoints, plot, rectPoints, shadeColor, transformRegion, type Pt, type Transform } from "../../core/tools";
 import { activePreview, activeSubset, activeTileset, history, setStatus, ui, useProject, useUi, type ToolId } from "../../state/app";
-import { editorBridge } from "../commands";
+import { commands, editorBridge, shortcutOf } from "../commands";
 import { drawChecker, fitCanvas, tileCanvas } from "../render";
 import { EmptyState, IconButton, NumberInput } from "../widgets";
 import { Icon, type IconName } from "../icons";
+
+/** " (Shift+H)" for a command's current shortcut, or "". */
+function keyOf(cmdId: string) {
+  const c = commands.find((x) => x.id === cmdId);
+  const k = c ? shortcutOf(c) : "";
+  return k ? ` (${k})` : "";
+}
 
 /** Keeps receiving moves outside the canvas. Can throw for synthetic or already-released pointers; drawing still works without it. */
 function capturePointer(e: React.PointerEvent) {
@@ -30,6 +37,15 @@ const TOOLS: { id: ToolId; label: string; key: string; icon: IconName }[] = [
   { id: "select", label: "Rectangular Select", key: "M", icon: "select" },
   { id: "picker", label: "Color Selector", key: "I or Alt+click", icon: "picker" },
 ];
+
+/** Flip / rotate buttons. They act on the selection, or on the whole tile when nothing is selected. */
+const TRANSFORMS: { id: Transform; label: string; glyph: string; cmd: string }[] = [
+  { id: "flipH", label: "Flip Horizontal", glyph: "↔", cmd: "edit.flipH" },
+  { id: "flipV", label: "Flip Vertical", glyph: "↕", cmd: "edit.flipV" },
+  { id: "rotateCCW", label: "Rotate Counter-clockwise", glyph: "↺", cmd: "edit.rotateCCW" },
+  { id: "rotateCW", label: "Rotate Clockwise", glyph: "↻", cmd: "edit.rotateCW" },
+];
+const TRANSFORM_LABEL: Record<Transform, string> = { flipH: "Flip horizontal", flipV: "Flip vertical", rotateCW: "Rotate clockwise", rotateCCW: "Rotate counter-clockwise" };
 
 interface Rect {
   x: number;
@@ -103,6 +119,7 @@ export function EditorPanel() {
   const brushSize = useUi((s) => s.brushSize);
   const primary = useUi((s) => s.primary);
   const secondary = useUi((s) => s.secondary);
+  useUi((s) => s.shortcuts); // toolbar tooltips show the current bindings
 
   const ts = activeTileset(project);
   const tile = ts && tileId ? ts.tiles[tileId] : undefined;
@@ -417,6 +434,25 @@ export function EditorPanel() {
       history.dispatch("Clear selection", (p) => ops.setTilePixels(p, ts.id, tile.id, clearRect(tile.pixels, tw, th, s)));
       return true;
     };
+    editorBridge.transform = (t: Transform) => {
+      if (!tile || !ts || gesture.current) return;
+      // Read the tile fresh: two transforms in one tick would otherwise both start from the last render.
+      const cur = history.project.tilesets.find((x) => x.id === ts.id)?.tiles[tile.id];
+      if (!cur) return;
+      const s = selRef.current;
+      const region = s ?? { x: 0, y: 0, w: tw, h: th };
+      const r = transformRegion(cur.pixels, tw, th, region, t);
+      if (!r) {
+        setStatus(s ? `A ${s.w}×${s.h} selection turned on its side doesn't fit in a ${tw}×${th} tile.` : `Only square tiles can be rotated whole (this one is ${tw}×${th}). Select a square area to rotate.`);
+        return;
+      }
+      history.dispatch(TRANSFORM_LABEL[t] + (s ? " selection" : ""), (p) => ops.setTilePixels(p, ts.id, tile.id, r.pixels));
+      if (s) {
+        selRef.current = r.rect;
+        setSel(r.rect);
+      }
+      setStatus(`${TRANSFORM_LABEL[t]}${s ? ` (${s.w}×${s.h} selection)` : ` "${tile.name}"`}`);
+    };
     return () => {
       for (const k of Object.keys(editorBridge) as (keyof typeof editorBridge)[]) delete editorBridge[k];
     };
@@ -441,6 +477,15 @@ export function EditorPanel() {
           <IconButton key={t.id} title={`${t.label} (${t.key})`} active={tool === t.id} onClick={() => ui.set({ tool: t.id })}>
             <Icon name={t.icon} />
           </IconButton>
+        ))}
+        <span className="sep-v" />
+        {TRANSFORMS.map((t, i) => (
+          <span key={t.id} style={{ display: "contents" }}>
+            {i === 2 && <span className="sep-v" />}
+            <IconButton title={`${t.label} ${sel ? "(selection)" : "(whole tile)"}${keyOf(t.cmd)}`} disabled={!tile} onClick={() => editorBridge.transform?.(t.id)}>
+              {t.glyph}
+            </IconButton>
+          </span>
         ))}
         <span className="sep-v" />
         {(tool === "pencil" || tool === "eraser") && (

@@ -2,6 +2,7 @@ import * as A from "../state/actions";
 import { activePreview, activeSubset, activeTileset, history, ui, type ToolId } from "../state/app";
 import { nameTilesFromSlots } from "../core/ops";
 import { templateOf } from "../core/templates";
+import type { Transform } from "../core/tools";
 
 /**
  * One registry drives the menus, the command palette (Ctrl+Shift+P) and
@@ -30,6 +31,8 @@ export const editorBridge: {
   selectAll?: () => void;
   deselect?: () => void;
   deleteSelection?: () => boolean;
+  /** Flip / rotate the selection, or the whole open tile. */
+  transform?: (t: Transform) => void;
 } = {};
 
 /** Set by App for panel commands that need the layout model. */
@@ -70,6 +73,10 @@ export const commands: Command[] = [
   { id: "edit.paste", label: "Paste", menu: "Edit", shortcut: "Ctrl+V", run: () => editorBridge.paste?.(), enabled: () => !!ui.get().clip },
   { id: "edit.selectAll", label: "Select All", menu: "Edit", shortcut: "Ctrl+A", run: () => editorBridge.selectAll?.() },
   { id: "edit.deselect", label: "Deselect", menu: "Edit", shortcut: "Ctrl+D", run: () => editorBridge.deselect?.() },
+  { id: "edit.flipH", label: "Flip Horizontal", menu: "Edit", shortcut: "Shift+H", sep: true, enabled: hasTile, run: () => editorBridge.transform?.("flipH") },
+  { id: "edit.flipV", label: "Flip Vertical", menu: "Edit", shortcut: "Shift+V", enabled: hasTile, run: () => editorBridge.transform?.("flipV") },
+  { id: "edit.rotateCW", label: "Rotate Clockwise", menu: "Edit", shortcut: "R", enabled: hasTile, run: () => editorBridge.transform?.("rotateCW") },
+  { id: "edit.rotateCCW", label: "Rotate Counter-clockwise", menu: "Edit", shortcut: "Shift+R", enabled: hasTile, run: () => editorBridge.transform?.("rotateCCW") },
   { id: "edit.newTile", label: "New Tile", menu: "Edit", shortcut: "Ctrl+T", run: A.addBlankTile, enabled: hasTileset, sep: true },
   { id: "edit.duplicateTile", label: "Duplicate Tile", menu: "Edit", shortcut: "Ctrl+Shift+D", run: A.duplicateActiveTile, enabled: hasTile },
   {
