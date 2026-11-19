@@ -80,7 +80,7 @@ Layers only hold pixels the user drew. Flattening is a display / export step the
 
 ## Open questions
 
-- Should a hidden layer dim (rather than vanish) in the editor? Provisional: it vanishes; tile bar and preview still show the full composite.
+- ~~Should a hidden layer dim (rather than vanish) in the editor?~~ Decided (human, 2026-11-18): it vanishes. The tile bar and previews still show the full composite.
 
 ## Built
 

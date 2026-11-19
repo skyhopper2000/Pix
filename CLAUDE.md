@@ -150,7 +150,7 @@ Keep this table current: `planned` → `in progress` → `ready for review` (or 
 - Hands-on pass with a real mouse/pen. Automated checks used synthetic events.
 - Steps 11 and 12 are merged; the merge left broken imports in `importClient.ts` / `ImportDialog.tsx`, fixed on `step/13-drag-and-drop`. Import a large PNG in the desktop app to check the worker in WebView2.
 - Step 13: in the desktop app, drag a tile into a subset slot, between slots, and drag a panel tab to another dock spot.
-- Step 17: in the desktop app, add layers to a tile, save, reopen, and export; check the exported sheet matches the tile bar. Decide whether a hidden layer should dim instead of vanish in the editor.
+- Step 17: in the desktop app, add layers to a tile, save, reopen, and export; check the exported sheet matches the tile bar.
 - Step 15: in the desktop app, open *Edit › Preferences…*, rebind a shortcut, change the font size and restart to confirm preferences persist in WebView2.
 - Step 16: in the desktop app, right-click a tile and a tileset and check that Pix's menu shows instead of the WebView2 browser menu, and run *Export Tileset…* through to a saved zip. Flip/rotate buttons use text glyphs until pixel-art icons are drawn.
 
