@@ -6,6 +6,7 @@ import { createProject, findPreview, findTileset } from "../core/ops";
 import type { PreservedTiles } from "../core/project-io";
 import type { SaveTarget } from "../platform";
 import { ProjectHistory } from "./history";
+import { loadPrefs, pickPrefs, savePrefs } from "./prefs";
 import { Store, useStore } from "./store";
 
 export type ToolId = "pencil" | "eraser" | "fill" | "line" | "rect" | "ellipse" | "shade" | "select" | "picker";
@@ -23,6 +24,7 @@ export type Dialog =
   | { kind: "fillSubset"; subsetId: Id; start?: number }
   | { kind: "editTemplate"; subsetId: Id }
   | { kind: "resize"; what: "subset" | "preview"; id: Id; cols: number; rows: number }
+  | { kind: "preferences" }
   | { kind: "message"; title: string; body: string[] }
   | { kind: "confirm"; title: string; body: string; confirmLabel: string; onConfirm: () => void };
 
@@ -65,6 +67,10 @@ export interface UiState {
   slotGuides: boolean;
 
   theme: "dark" | "light";
+  /** Multiplier for every UI font size (1 = 100%). */
+  fontScale: number;
+  /** Shortcut overrides by command id; "" = no shortcut. Defaults live in the command registry. */
+  shortcuts: Record<string, string>;
   dialog: Dialog | null;
   commandPalette: boolean;
   status: string;
@@ -76,14 +82,6 @@ export interface UiState {
   clip: PixelClip | null;
 }
 
-const savedTheme = (): "dark" | "light" => {
-  try {
-    return localStorage.getItem("tilestudio.theme") === "light" ? "light" : "dark";
-  } catch {
-    return "dark";
-  }
-};
-
 export const initialUi = (): UiState => ({
   tilesetId: null,
   subsetId: null,
@@ -93,7 +91,6 @@ export const initialUi = (): UiState => ({
   tileId: null,
   tool: "pencil",
   brushSize: 1,
-  pixelPerfect: true,
   fillGlobal: false,
   shapeFilled: false,
   primary: pack(0, 0, 0),
@@ -101,11 +98,7 @@ export const initialUi = (): UiState => ({
   editorZoom: 20,
   neighborMargin: 4,
   previewZoom: 2,
-  previewGrid: true,
-  highlightUses: false,
   previewTool: "draw",
-  slotGuides: true,
-  theme: typeof localStorage === "undefined" ? "dark" : savedTheme(),
   dialog: null,
   commandPalette: false,
   status: "Ready",
@@ -114,10 +107,23 @@ export const initialUi = (): UiState => ({
   preserved: new Map(),
   lastExport: null,
   clip: null,
+  ...loadPrefs(),
 });
 
 export const history = new ProjectHistory(createProject("Untitled"));
 export const ui = new Store<UiState>(initialUi());
+
+// Persist preferences whenever one of them changes.
+{
+  let last = JSON.stringify(pickPrefs(ui.get()));
+  ui.subscribe(() => {
+    const prefs = pickPrefs(ui.get());
+    const json = JSON.stringify(prefs);
+    if (json === last) return;
+    last = json;
+    savePrefs(prefs);
+  });
+}
 
 export function useProject(): Project {
   return useSyncExternalStore(history.subscribe, () => history.project);

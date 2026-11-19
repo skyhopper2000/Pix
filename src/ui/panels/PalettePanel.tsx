@@ -48,6 +48,12 @@ export function PalettePanel() {
     <div className="panel palette-panel">
       <div className="palette-current">
         <ColorEditor label="Primary" color={primary} onChange={(c) => ui.set({ primary: c })} />
+        <div className="color-swap-row">
+          <button type="button" className="color-swap" title="Swap primary and secondary colours (X)" onClick={() => ui.set((s) => ({ primary: s.secondary, secondary: s.primary }))}>
+            ⇅ Swap
+          </button>
+          <span className="hint">Left-click draws primary, right-click draws secondary</span>
+        </div>
         <ColorEditor label="Secondary" color={secondary} onChange={(c) => ui.set({ secondary: c })} />
       </div>
       <div className="panel-toolbar">
