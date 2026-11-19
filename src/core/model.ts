@@ -10,11 +10,34 @@ export type Id = string;
 /** Packed 0xRRGGBBAA, unsigned. */
 export type Color = number;
 
+/**
+ * How a layer combines with the layers below it when the tile is flattened.
+ * "replace": any pixel with alpha > 0 replaces what's below (the default; never invents a colour).
+ * "normal": standard source-over alpha blending (opt-in per layer).
+ */
+export type BlendMode = "replace" | "normal";
+
+export interface Layer {
+  id: Id;
+  name: string;
+  blend: BlendMode;
+  /** RGBA, same size as the tile. Never mutate a stored array. */
+  pixels: Uint8ClampedArray;
+}
+
 export interface Tile {
   id: TileId;
   name: string;
-  /** RGBA, row-major, length = tileWidth * tileHeight * 4. Never mutate a stored array. */
+  /**
+   * RGBA, row-major, length = tileWidth * tileHeight * 4. Never mutate a stored array.
+   * For a layered tile this is the flattened composite of every layer (what exports).
+   */
   pixels: Uint8ClampedArray;
+  /**
+   * Optional layer stack, bottom → top. Absent = one implicit layer (`pixels`).
+   * When present it has at least 2 layers and `pixels === flattenLayers(layers)`.
+   */
+  layers?: Layer[];
 }
 
 export type GridType = "square" | "isometric" | "hex";

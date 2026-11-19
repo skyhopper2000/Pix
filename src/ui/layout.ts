@@ -13,6 +13,7 @@ export const PANELS: Record<string, string> = {
   project: "Project",
   tiles: "Tiles",
   palette: "Palette",
+  layers: "Layers",
 };
 
 const tab = (id: string) => ({ type: "tab" as const, id, name: PANELS[id], component: id, enableClose: true });
@@ -49,7 +50,7 @@ export const DEFAULT_LAYOUT: IJsonModel = {
         children: [
           { type: "tabset", id: "ts-project", weight: 30, children: [tab("project")] },
           { type: "tabset", id: "ts-tiles", weight: 45, children: [tab("tiles")] },
-          { type: "tabset", id: "ts-palette", weight: 25, children: [tab("palette")] },
+          { type: "tabset", id: "ts-palette", weight: 25, children: [tab("palette"), tab("layers")] },
         ],
       },
     ],

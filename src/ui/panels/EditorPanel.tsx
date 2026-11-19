@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toHex } from "../../core/color";
 import type { Color, Preview, Project, TileId, Tileset } from "../../core/model";
+import { flattenLayers, IMPLICIT_LAYER, layersOf } from "../../core/layers";
 import * as ops from "../../core/ops";
 import { createPixels, crop, getPixel, setPixel } from "../../core/pixels";
 import { boxFrom, brushPoints, ellipsePoints, floodFill, isLCorner, linePoints, plot, rectPoints, shadeColor, transformRegion, type Pt, type Transform } from "../../core/tools";
-import { activePreview, activeSubset, activeTileset, history, setStatus, ui, useProject, useUi, type ToolId } from "../../state/app";
+import { activeLayer, activePreview, activeSubset, activeTileset, history, setStatus, ui, useProject, useUi, type ToolId } from "../../state/app";
 import { commands, editorBridge, shortcutOf } from "../commands";
 import { drawChecker, fitCanvas, tileCanvas } from "../render";
 import { EmptyState, IconButton, NumberInput } from "../widgets";
@@ -59,6 +60,8 @@ interface Gesture {
   tool: ToolId;
   button: number;
   tileId: TileId;
+  /** The layer being drawn on (IMPLICIT_LAYER for a plain tile). */
+  layerId: string;
   base: Uint8ClampedArray;
   work: Uint8ClampedArray;
   start: Pt;
@@ -120,6 +123,8 @@ export function EditorPanel() {
   const primary = useUi((s) => s.primary);
   const secondary = useUi((s) => s.secondary);
   useUi((s) => s.shortcuts); // toolbar tooltips show the current bindings
+  useUi((s) => s.layerId);
+  const hiddenLayers = useUi((s) => s.hiddenLayers);
 
   const ts = activeTileset(project);
   const tile = ts && tileId ? ts.tiles[tileId] : undefined;
@@ -143,7 +148,13 @@ export function EditorPanel() {
   const tw = ts?.tileWidth ?? 16;
   const th = ts?.tileHeight ?? 16;
   const m = Math.max(0, Math.min(margin, Math.max(tw, th)));
-  const pixels = tile?.pixels ?? (ts ? blankFor(ts) : null);
+  const act = activeLayer(tile);
+  // What the editor shows: every layer, minus the ones hidden in this session (view only).
+  const shown = useMemo(() => {
+    if (!tile?.layers || !tile.layers.some((l) => hiddenLayers.has(l.id))) return tile?.pixels;
+    return flattenLayers(tile.layers.filter((l) => !hiddenLayers.has(l.id)), tw, th);
+  }, [tile, hiddenLayers, tw, th]);
+  const pixels = shown ?? (ts ? blankFor(ts) : null);
   const cell = neighbourCell(pv, tile?.id ?? null, previewCell);
 
   const neighbours = useMemo(() => {
@@ -243,6 +254,28 @@ export function EditorPanel() {
     return id;
   };
 
+  /** Fresh pixels of the active layer of tile `id` (read from history, not the last render). */
+  const freshLayer = (id: TileId): { layerId: string; px: Uint8ClampedArray } => {
+    const t = history.project.tilesets.find((x) => x.id === ts!.id)!.tiles[id];
+    const a = activeLayer(t)!;
+    return { layerId: a.layer.id, px: a.layer.pixels };
+  };
+
+  /** Drawing on a locked or hidden layer is blocked, with the reason in the status bar. */
+  const layerWritable = () => {
+    if (!act) return true;
+    const u = ui.get();
+    if (u.lockedLayers.has(act.layer.id)) {
+      setStatus(`"${act.layer.name}" is locked. Unlock it in the Layers panel to draw on it.`);
+      return false;
+    }
+    if (u.hiddenLayers.has(act.layer.id)) {
+      setStatus(`"${act.layer.name}" is hidden. Show it in the Layers panel to draw on it.`);
+      return false;
+    }
+    return true;
+  };
+
   const paletteAllows = (c: Color) => {
     const pal = history.project.palette;
     if (!pal.locked || (c & 255) === 0 || pal.colors.includes(c)) return true;
@@ -254,7 +287,8 @@ export function EditorPanel() {
     const id = g.tileId;
     const tsId = ts!.id;
     const px = g.work.slice();
-    history.preview((p: Project) => ops.setTilePixels(p, tsId, id, px));
+    const layerId = g.layerId;
+    history.preview((p: Project) => ops.setLayerPixels(p, tsId, id, layerId, px));
   };
 
   const drawAlong = (g: Gesture, to: Pt) => {
@@ -302,21 +336,24 @@ export function EditorPanel() {
     const t: ToolId = e.altKey ? "picker" : tool;
     if (t === "picker") {
       if (!inTile(p)) return;
-      const c = getPixel(pixels, tw, p.x, p.y);
+      const c = getPixel(tile?.pixels ?? pixels, tw, p.x, p.y);
       ui.set(e.button === 2 ? { secondary: c } : { primary: c });
       setStatus(`Picked ${toHex(c)}`);
       return;
     }
+    if (t !== "select" && !layerWritable()) return;
     capturePointer(e);
 
     if (t === "select") {
       const s = selRef.current;
       if (s && p.x >= s.x && p.y >= s.y && p.x < s.x + s.w && p.y < s.y + s.h && tile) {
-        const lifted = crop(tile.pixels, tw, th, s.x, s.y, s.w, s.h);
-        const hole = clearRect(tile.pixels, tw, th, s);
-        gesture.current = { kind: "move", tool: t, button: e.button, tileId: tile.id, base: tile.pixels, work: hole.slice(), start: p, last: p, path: [], color: 0, shaded: new Set(), label: "Move selection", lifted: { rect: s, pixels: lifted, hole } };
+        if (!layerWritable()) return;
+        const { layerId, px: lp } = freshLayer(tile.id);
+        const lifted = crop(lp, tw, th, s.x, s.y, s.w, s.h);
+        const hole = clearRect(lp, tw, th, s);
+        gesture.current = { kind: "move", tool: t, button: e.button, tileId: tile.id, layerId, base: lp, work: hole.slice(), start: p, last: p, path: [], color: 0, shaded: new Set(), label: "Move selection", lifted: { rect: s, pixels: lifted, hole } };
       } else {
-        gesture.current = { kind: "select", tool: t, button: e.button, tileId: tile?.id ?? "", base: pixels, work: pixels, start: p, last: p, path: [], color: 0, shaded: new Set(), label: "" };
+        gesture.current = { kind: "select", tool: t, button: e.button, tileId: tile?.id ?? "", layerId: IMPLICIT_LAYER, base: pixels, work: pixels, start: p, last: p, path: [], color: 0, shaded: new Set(), label: "" };
         setSel(null);
       }
       return;
@@ -327,9 +364,9 @@ export function EditorPanel() {
     if (!inTile(p) && t === "fill") return;
     const id = ensureTile();
     if (!id) return;
-    const base = history.project.tilesets.find((x) => x.id === ts.id)!.tiles[id].pixels;
+    const { layerId, px: base } = freshLayer(id);
     const labels: Record<string, string> = { pencil: "Draw", eraser: "Erase", fill: "Fill", line: "Line", rect: "Rectangle", ellipse: "Ellipse", shade: e.button === 2 ? "Darken" : "Lighten" };
-    const g: Gesture = { kind: "draw", tool: t, button: e.button, tileId: id, base, work: base.slice(), start: p, last: p, path: [], color, shaded: new Set(), label: labels[t] ?? "Edit" };
+    const g: Gesture = { kind: "draw", tool: t, button: e.button, tileId: id, layerId, base, work: base.slice(), start: p, last: p, path: [], color, shaded: new Set(), label: labels[t] ?? "Edit" };
     gesture.current = g;
     if (t === "fill") g.work = floodFill(base, tw, th, p.x, p.y, color, fillGlobal);
     else if (t === "line" || t === "rect" || t === "ellipse") shape(g, p, e.shiftKey);
@@ -404,21 +441,22 @@ export function EditorPanel() {
       setStatus(`Copied ${r.w}×${r.h} px`);
     };
     editorBridge.cut = () => {
-      if (!tile || !ts) return;
+      if (!tile || !ts || !layerWritable()) return;
       const r = region();
-      ui.set({ clip: { w: r.w, h: r.h, pixels: crop(tile.pixels, tw, th, r.x, r.y, r.w, r.h) } });
-      history.dispatch("Cut", (p) => ops.setTilePixels(p, ts.id, tile.id, clearRect(tile.pixels, tw, th, r)));
+      const { layerId, px } = freshLayer(tile.id);
+      ui.set({ clip: { w: r.w, h: r.h, pixels: crop(px, tw, th, r.x, r.y, r.w, r.h) } });
+      history.dispatch("Cut", (p) => ops.setLayerPixels(p, ts.id, tile.id, layerId, clearRect(px, tw, th, r)));
     };
     editorBridge.paste = () => {
       const clip = ui.get().clip;
-      if (!clip || !ts) return;
+      if (!clip || !ts || !layerWritable()) return;
       const at = selRef.current ? { x: selRef.current.x, y: selRef.current.y } : { x: 0, y: 0 };
       const id = ensureTile();
       if (!id) return;
-      const base = history.project.tilesets.find((x) => x.id === ts.id)!.tiles[id].pixels;
+      const { layerId, px: base } = freshLayer(id);
       const work = base.slice();
       blitMasked(work, tw, th, clip.pixels, clip.w, clip.h, at.x, at.y);
-      history.preview((p) => ops.setTilePixels(p, ts.id, id, work));
+      history.preview((p) => ops.setLayerPixels(p, ts.id, id, layerId, work));
       history.commit("Paste");
       ui.set({ tool: "select" });
       setTimeout(() => setSel({ x: at.x, y: at.y, w: Math.min(clip.w, tw - at.x), h: Math.min(clip.h, th - at.y) }), 0);
@@ -431,22 +469,24 @@ export function EditorPanel() {
     editorBridge.deleteSelection = () => {
       const s = selRef.current;
       if (!s || !tile || !ts) return false;
-      history.dispatch("Clear selection", (p) => ops.setTilePixels(p, ts.id, tile.id, clearRect(tile.pixels, tw, th, s)));
+      if (!layerWritable()) return true;
+      const { layerId, px } = freshLayer(tile.id);
+      history.dispatch("Clear selection", (p) => ops.setLayerPixels(p, ts.id, tile.id, layerId, clearRect(px, tw, th, s)));
       return true;
     };
     editorBridge.transform = (t: Transform) => {
       if (!tile || !ts || gesture.current) return;
       // Read the tile fresh: two transforms in one tick would otherwise both start from the last render.
-      const cur = history.project.tilesets.find((x) => x.id === ts.id)?.tiles[tile.id];
-      if (!cur) return;
+      if (!history.project.tilesets.find((x) => x.id === ts.id)?.tiles[tile.id] || !layerWritable()) return;
+      const cur = freshLayer(tile.id);
       const s = selRef.current;
       const region = s ?? { x: 0, y: 0, w: tw, h: th };
-      const r = transformRegion(cur.pixels, tw, th, region, t);
+      const r = transformRegion(cur.px, tw, th, region, t);
       if (!r) {
         setStatus(s ? `A ${s.w}×${s.h} selection turned on its side doesn't fit in a ${tw}×${th} tile.` : `Only square tiles can be rotated whole (this one is ${tw}×${th}). Select a square area to rotate.`);
         return;
       }
-      history.dispatch(TRANSFORM_LABEL[t] + (s ? " selection" : ""), (p) => ops.setTilePixels(p, ts.id, tile.id, r.pixels));
+      history.dispatch(TRANSFORM_LABEL[t] + (s ? " selection" : ""), (p) => ops.setLayerPixels(p, ts.id, tile.id, cur.layerId, r.pixels));
       if (s) {
         selRef.current = r.rect;
         setSel(r.rect);
@@ -545,6 +585,11 @@ export function EditorPanel() {
       </div>
       <div className="editor-footer">
         <span>{title}</span>
+        {tile?.layers && act && (
+          <span className="muted">
+            layer "{act.layer.name}" ({act.index + 1}/{layersOf(tile).length})
+          </span>
+        )}
         <span className="spacer" />
         {!cell && pv && tile && <span className="muted">not in "{pv.name}", so no neighbour context</span>}
         {sel && (

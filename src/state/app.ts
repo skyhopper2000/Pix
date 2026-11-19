@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { pack } from "../core/color";
 import type { ExportSettings } from "../core/export";
-import type { Color, Id, Preview, Project, Subset, Tile, TileId, Tileset } from "../core/model";
+import { layersOf } from "../core/layers";
+import type { Color, Id, Layer, Preview, Project, Subset, Tile, TileId, Tileset } from "../core/model";
 import { createProject, findPreview, findTileset } from "../core/ops";
 import type { PreservedTiles } from "../core/project-io";
 import type { SaveTarget } from "../platform";
@@ -19,7 +20,7 @@ export type Dialog =
   | { kind: "import"; fileName: string; bytes: Uint8Array }
   | { kind: "export"; /** Pre-selected scope (right-click › Export Tileset / Subset). */ scope?: Id[]; title?: string }
   | { kind: "nearDup"; threshold?: number }
-  | { kind: "rename"; what: "tile" | "tileset" | "subset" | "preview" | "project"; id: Id; current: string }
+  | { kind: "rename"; what: "tile" | "tileset" | "subset" | "preview" | "project" | "layer"; id: Id; current: string }
   | { kind: "terrains"; subsetId: Id }
   | { kind: "fillSubset"; subsetId: Id; start?: number }
   | { kind: "editTemplate"; subsetId: Id }
@@ -47,6 +48,11 @@ export interface UiState {
   previewCell: number | null;
   /** The tile open in the tile editor. null = draft (a new blank tile, created on first stroke). */
   tileId: TileId | null;
+  /** Active layer of the open tile (null or unknown = its top layer). */
+  layerId: Id | null;
+  /** View-only layer flags by layer id: session state, not undoable, not saved. */
+  hiddenLayers: ReadonlySet<Id>;
+  lockedLayers: ReadonlySet<Id>;
 
   tool: ToolId;
   brushSize: number;
@@ -89,6 +95,9 @@ export const initialUi = (): UiState => ({
   previewId: null,
   previewCell: null,
   tileId: null,
+  layerId: null,
+  hiddenLayers: new Set(),
+  lockedLayers: new Set(),
   tool: "pencil",
   brushSize: 1,
   fillGlobal: false,
@@ -158,11 +167,20 @@ export function activeTile(p: Project = history.project, u: UiState = ui.get()):
   return ts && u.tileId ? ts.tiles[u.tileId] : undefined;
 }
 
+/** The open tile's active layer and its index (top layer when none or a stale one is chosen). */
+export function activeLayer(tile: Tile | undefined, u: UiState = ui.get()): { layer: Layer; index: number } | null {
+  if (!tile) return null;
+  const ls = layersOf(tile);
+  const i = ls.findIndex((l) => l.id === u.layerId);
+  const index = i >= 0 ? i : ls.length - 1;
+  return { layer: ls[index], index };
+}
+
 export const setStatus = (status: string) => ui.set({ status });
 
 /** Opens a tile in the editor (selecting it anywhere does this). */
 export function openTile(tileId: TileId | null, extra: Partial<UiState> = {}) {
-  ui.set({ tileId, ...extra });
+  ui.set({ tileId, layerId: null, ...extra });
 }
 
 /** Keeps the UI selection valid after the project changes (undo, delete, open). */

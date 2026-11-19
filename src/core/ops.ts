@@ -1,5 +1,6 @@
 import { newId } from "./ids";
-import type { Color, GridType, Id, Palette, Preview, Project, Subset, SubsetType, Template, Terrain, Tile, TileId, Tileset } from "./model";
+import { DEFAULT_BLEND, IMPLICIT_LAYER, layersOf, withLayers } from "./layers";
+import type { BlendMode, Color, GridType, Id, Layer, Palette, Preview, Project, Subset, SubsetType, Template, Terrain, Tile, TileId, Tileset } from "./model";
 import { DEFAULT_TILE_SIZE } from "./model";
 import { createPixels } from "./pixels";
 import { slotName, templateOf } from "./templates";
@@ -175,22 +176,111 @@ export function addTiles(p: Project, tsId: Id, tiles: readonly Tile[]): Project 
   });
 }
 
+/**
+ * Replaces a tile's pixels. On a layered tile this writes the **base (bottom) layer**
+ * and recomputes the composite, which is how map-preview strokes land on the base.
+ */
 export function setTilePixels(p: Project, tsId: Id, tileId: TileId, pixels: Uint8ClampedArray): Project {
-  return mapTileset(p, tsId, (ts) => {
-    const t = ts.tiles[tileId];
-    if (!t) return ts;
-    return { ...ts, tiles: { ...ts.tiles, [tileId]: { ...t, pixels } } };
-  });
+  return setManyTilePixels(p, tsId, new Map([[tileId, pixels]]));
 }
 
-/** Sets the pixels of several tiles at once (e.g. a paste or a move spanning tiles). */
+/** Sets the pixels of several tiles at once (e.g. a paste or a move spanning tiles). Layered tiles: see setTilePixels. */
 export function setManyTilePixels(p: Project, tsId: Id, edits: Map<TileId, Uint8ClampedArray>): Project {
   if (edits.size === 0) return p;
   return mapTileset(p, tsId, (ts) => {
-    const tiles = { ...ts.tiles };
-    for (const [id, px] of edits) if (tiles[id]) tiles[id] = { ...tiles[id], pixels: px };
-    return { ...ts, tiles };
+    let tiles: Record<TileId, Tile> | null = null;
+    for (const [id, px] of edits) {
+      const t = ts.tiles[id];
+      if (!t) continue;
+      tiles ??= { ...ts.tiles };
+      tiles[id] = t.layers ? withLayers(t, t.layers.map((l, i) => (i === 0 ? { ...l, pixels: px } : l)), ts.tileWidth, ts.tileHeight) : { ...t, pixels: px };
+    }
+    return tiles ? { ...ts, tiles } : ts;
   });
+}
+
+// ---------- layers ----------
+
+/** Applies fn to one tile's layer list (implicit single layer for a plain tile) and recomputes the composite. */
+function mapLayers(p: Project, tsId: Id, tileId: TileId, fn: (layers: Layer[]) => Layer[] | null): Project {
+  return mapTileset(p, tsId, (ts) => {
+    const t = ts.tiles[tileId];
+    if (!t) return ts;
+    const next = fn(layersOf(t));
+    if (!next) return ts;
+    return { ...ts, tiles: { ...ts.tiles, [tileId]: withLayers(t, next, ts.tileWidth, ts.tileHeight) } };
+  });
+}
+
+/** Replaces one layer's pixels. On a plain tile, IMPLICIT_LAYER (or any id) of its single layer is tile.pixels. */
+export function setLayerPixels(p: Project, tsId: Id, tileId: TileId, layerId: Id, pixels: Uint8ClampedArray): Project {
+  return mapLayers(p, tsId, tileId, (ls) => {
+    const i = ls.findIndex((l) => l.id === layerId);
+    if (i < 0) return null;
+    return ls.map((l, k) => (k === i ? { ...l, pixels } : l));
+  });
+}
+
+/** Adds a blank layer above `aboveLayerId` (default: on top). Returns the new layer id. */
+export function addLayer(p: Project, tsId: Id, tileId: TileId, aboveLayerId?: Id, name?: string): { project: Project; layerId: Id | null } {
+  const ts = findTileset(p, tsId);
+  const t = ts?.tiles[tileId];
+  if (!ts || !t) return { project: p, layerId: null };
+  const ls = layersOf(t);
+  const at = aboveLayerId ? ls.findIndex((l) => l.id === aboveLayerId) + 1 : ls.length;
+  const layer: Layer = { id: newId(), name: name ?? nextLayerName(ls), blend: DEFAULT_BLEND, pixels: createPixels(ts.tileWidth, ts.tileHeight) };
+  // A plain tile's implicit layer gets a real id once the tile becomes layered.
+  const base = ls.map((l) => (l.id === IMPLICIT_LAYER ? { ...l, id: newId() } : l));
+  const next = base.slice();
+  next.splice(at <= 0 ? next.length : at, 0, layer);
+  return { project: mapLayers(p, tsId, tileId, () => next), layerId: layer.id };
+}
+
+function nextLayerName(ls: Layer[]): string {
+  let n = ls.length + 1;
+  while (ls.some((l) => l.name === `Layer ${n}`)) n++;
+  return `Layer ${n}`;
+}
+
+/** Deletes a layer. The last layer can't be deleted; one layer left turns the tile back into a plain tile. */
+export function deleteLayer(p: Project, tsId: Id, tileId: TileId, layerId: Id): Project {
+  return mapLayers(p, tsId, tileId, (ls) => (ls.length < 2 || !ls.some((l) => l.id === layerId) ? null : ls.filter((l) => l.id !== layerId)));
+}
+
+export function renameLayer(p: Project, tsId: Id, tileId: TileId, layerId: Id, name: string): Project {
+  const t = findTileset(p, tsId)?.tiles[tileId];
+  if (!t?.layers) return p; // the implicit layer has no stored name
+  return mapLayers(p, tsId, tileId, (ls) => (ls.some((l) => l.id === layerId && l.name !== name) ? ls.map((l) => (l.id === layerId ? { ...l, name } : l)) : null));
+}
+
+export function setLayerBlend(p: Project, tsId: Id, tileId: TileId, layerId: Id, blend: BlendMode): Project {
+  return mapLayers(p, tsId, tileId, (ls) => (ls.some((l) => l.id === layerId && l.blend !== blend) ? ls.map((l) => (l.id === layerId ? { ...l, blend } : l)) : null));
+}
+
+/** Moves a layer by `delta` positions (+1 = up, toward the top). */
+export function moveLayer(p: Project, tsId: Id, tileId: TileId, layerId: Id, delta: number): Project {
+  return mapLayers(p, tsId, tileId, (ls) => {
+    const from = ls.findIndex((l) => l.id === layerId);
+    const to = Math.max(0, Math.min(ls.length - 1, from + delta));
+    if (from < 0 || to === from) return null;
+    const next = ls.slice();
+    const [l] = next.splice(from, 1);
+    next.splice(to, 0, l);
+    return next;
+  });
+}
+
+/** Copies a layer (pixels and blend) directly above itself. Returns the new layer id. */
+export function duplicateLayer(p: Project, tsId: Id, tileId: TileId, layerId: Id): { project: Project; layerId: Id | null } {
+  const t = findTileset(p, tsId)?.tiles[tileId];
+  if (!t) return { project: p, layerId: null };
+  const ls = layersOf(t).map((l) => (l.id === IMPLICIT_LAYER ? { ...l, id: newId() } : l));
+  const i = layerId === IMPLICIT_LAYER && !t.layers ? 0 : ls.findIndex((l) => l.id === layerId);
+  if (i < 0) return { project: p, layerId: null };
+  const copy: Layer = { ...ls[i], id: newId(), name: ls[i].name + " copy" };
+  const next = ls.slice();
+  next.splice(i + 1, 0, copy);
+  return { project: mapLayers(p, tsId, tileId, () => next), layerId: copy.id };
 }
 
 export function renameTile(p: Project, tsId: Id, tileId: TileId, name: string): Project {
@@ -218,7 +308,7 @@ export function duplicateTile(p: Project, tsId: Id, tileId: TileId): { project: 
   const ts = findTileset(p, tsId);
   const t = ts?.tiles[tileId];
   if (!ts || !t) return { project: p, tileId: null };
-  const copy: Tile = { id: newId(), name: t.name + "_copy", pixels: t.pixels.slice() };
+  const copy: Tile = { id: newId(), name: t.name + "_copy", pixels: t.pixels.slice(), ...(t.layers ? { layers: t.layers.map((l) => ({ ...l, id: newId() })) } : {}) };
   return { project: addTile(p, tsId, copy, ts.tileOrder.indexOf(tileId) + 1), tileId: copy.id };
 }
 

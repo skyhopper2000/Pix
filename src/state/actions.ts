@@ -14,7 +14,9 @@ import {
 import { deserializeProject, projectFolderName, projectNameFromFolder, serializeProject } from "../core/project-io";
 import { getPlatform } from "../platform";
 import { decodeImage } from "../platform/decodeImage";
-import { activeTileset, history, openTile, reconcileSelection, setStatus, ui } from "./app";
+import { IMPLICIT_LAYER, layersOf } from "../core/layers";
+import type { BlendMode } from "../core/model";
+import { activeLayer, activeTile, activeTileset, history, openTile, reconcileSelection, setStatus, ui } from "./app";
 
 /** Commands the UI calls. Project edits go through history.dispatch so they're undoable. */
 
@@ -221,7 +223,7 @@ export function deleteTileById(id: TileId) {
   });
 }
 
-export function rename(what: "tile" | "tileset" | "subset" | "preview" | "project", id: Id, name: string) {
+export function rename(what: "tile" | "tileset" | "subset" | "preview" | "project" | "layer", id: Id, name: string) {
   const ts = activeTileset();
   const n = name.trim();
   if (!n) return;
@@ -237,6 +239,10 @@ export function rename(what: "tile" | "tileset" | "subset" | "preview" | "projec
         return ts ? ops.updateSubset(p, ts.id, id, { name: n }) : p;
       case "preview":
         return ts ? ops.renamePreview(p, ts.id, id, n) : p;
+      case "layer": {
+        const tileId = ui.get().tileId;
+        return ts && tileId ? ops.renameLayer(p, ts.id, tileId, id, n) : p;
+      }
     }
   });
 }
@@ -313,3 +319,103 @@ export function redo() {
   history.redo();
   if (label) setStatus(`Redid ${label}`);
 }
+
+// ---------- layers ----------
+
+/** The open tile and its tileset, or null when no saved tile is open (a draft has no layers yet). */
+function layerTarget() {
+  const ts = activeTileset();
+  const tile = activeTile();
+  return ts && tile ? { ts, tile } : null;
+}
+
+/** Hidden/locked flags follow a layer whose id changes (a plain tile's implicit layer gets a real id, and back). */
+function carryFlags(from: Id, to: Id) {
+  if (from === to) return;
+  const u = ui.get();
+  const move = (set: ReadonlySet<Id>) => {
+    if (!set.has(from)) return set;
+    const n = new Set(set);
+    n.delete(from);
+    n.add(to);
+    return n;
+  };
+  ui.set({ hiddenLayers: move(u.hiddenLayers), lockedLayers: move(u.lockedLayers) });
+}
+
+/** Runs a layer op that may turn a plain tile layered or back, keeping the base layer's flags. */
+function layerEdit(label: string, fn: (p: Project, tsId: Id, tileId: TileId) => Project) {
+  const t = layerTarget();
+  if (!t) return;
+  const beforeBase = layersOf(t.tile)[0].id;
+  history.dispatch(label, (p) => fn(p, t.ts.id, t.tile.id));
+  const after = activeTile();
+  if (after) carryFlags(beforeBase, layersOf(after)[0].id);
+}
+
+export function addLayer() {
+  const t = layerTarget();
+  if (!t) return setStatus("Draw something first: a new tile gets layers once it exists.");
+  const cur = activeLayer(t.tile)!;
+  let id: Id | null = null;
+  layerEdit("Add layer", (p, tsId, tileId) => {
+    const r = ops.addLayer(p, tsId, tileId, cur.layer.id === IMPLICIT_LAYER ? undefined : cur.layer.id);
+    id = r.layerId;
+    return r.project;
+  });
+  if (id) ui.set({ layerId: id });
+}
+
+export function duplicateLayer() {
+  const t = layerTarget();
+  if (!t) return;
+  const cur = activeLayer(t.tile)!;
+  let id: Id | null = null;
+  layerEdit("Duplicate layer", (p, tsId, tileId) => {
+    const r = ops.duplicateLayer(p, tsId, tileId, cur.layer.id);
+    id = r.layerId;
+    return r.project;
+  });
+  if (id) ui.set({ layerId: id });
+}
+
+export function deleteLayer(layerId?: Id) {
+  const t = layerTarget();
+  if (!t) return;
+  const ls = layersOf(t.tile);
+  if (ls.length < 2) return setStatus("A tile always keeps at least one layer.");
+  const target = layerId ?? activeLayer(t.tile)!.layer.id;
+  const i = ls.findIndex((l) => l.id === target);
+  layerEdit("Delete layer", (p, tsId, tileId) => ops.deleteLayer(p, tsId, tileId, target));
+  const after = activeTile();
+  if (after) ui.set({ layerId: layersOf(after)[Math.max(0, i - 1)]?.id ?? null });
+}
+
+export function moveLayer(delta: number) {
+  const t = layerTarget();
+  if (!t) return;
+  const cur = activeLayer(t.tile)!;
+  layerEdit(delta > 0 ? "Move layer up" : "Move layer down", (p, tsId, tileId) => ops.moveLayer(p, tsId, tileId, cur.layer.id, delta));
+}
+
+export function setLayerBlend(layerId: Id, blend: BlendMode) {
+  layerEdit(blend === "normal" ? "Layer blend: Normal" : "Layer blend: Replace", (p, tsId, tileId) => ops.setLayerBlend(p, tsId, tileId, layerId, blend));
+}
+
+export function renameActiveLayer() {
+  const t = layerTarget();
+  if (!t) return;
+  const cur = activeLayer(t.tile)!;
+  if (!t.tile.layers) return setStatus("Add a second layer to name layers.");
+  ui.set({ dialog: { kind: "rename", what: "layer", id: cur.layer.id, current: cur.layer.name } });
+}
+
+function toggleIn(key: "hiddenLayers" | "lockedLayers", layerId: Id) {
+  const n = new Set(ui.get()[key]);
+  if (n.has(layerId)) n.delete(layerId);
+  else n.add(layerId);
+  ui.set({ [key]: n } as Partial<ReturnType<typeof ui.get>>);
+}
+
+export const toggleLayerHidden = (layerId: Id) => toggleIn("hiddenLayers", layerId);
+export const toggleLayerLocked = (layerId: Id) => toggleIn("lockedLayers", layerId);

@@ -39,7 +39,8 @@ async function writeTree(root: string, files: FileTree) {
   const managed = new Set([...files.keys()].filter((p) => p.includes("/")).map((p) => p.slice(0, p.lastIndexOf("/"))));
   for (const rel of existing.keys()) {
     const slash = rel.lastIndexOf("/");
-    if (files.has(rel) || slash < 0 || !managed.has(rel.slice(0, slash))) continue;
+    // layers/ is always managed: a tile that went back to one layer leaves its whole folder unused.
+    if (files.has(rel) || slash < 0 || !(managed.has(rel.slice(0, slash)) || rel.startsWith("layers/"))) continue;
     await remove(joinPath(root, rel));
   }
 }
