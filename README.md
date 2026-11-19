@@ -23,7 +23,8 @@ Pix never generates, alters, "fixes" or judges your art. It slices, sorts, names
 
 - **Projects and tilesets.** A project has one shared palette and any number of tilesets. Each tileset owns its tiles and has one tile size.
 - **Import.** Slice any image into tiles with a tile size, offset and spacing. Exact duplicates collapse to one tile, and the original image is rebuilt as a map preview. Optionally extract the image's colors into your palette. You can review near-duplicates side by side, and nothing merges unless you click.
-- **Tile editor.** Pencil (with pixel-perfect strokes), eraser, fill (contiguous/global), line, rectangle, ellipse, lighten/darken, selection + move, and color picker. The adjoining tiles show dimmed around the edges so you can see how your tile meets its neighbours.
+- **Tile editor.** Pencil (with pixel-perfect strokes), eraser, fill (contiguous/global), line, rectangle, ellipse, lighten/darken, selection + move, and color picker. *Flip* (horizontal/vertical) and *Rotate* (clockwise/counter-clockwise) buttons act on the selection, or the whole tile when nothing is selected; they only move pixels, never change a colour. The adjoining tiles show dimmed around the edges so you can see how your tile meets its neighbours.
+- **Right-click menus.** In *Tiles*, right-click a tile to rename or delete it. In *Project*, right-click a tileset to rename it, add a subset or export just that tileset; right-click a subset to rename or export it.
 - **Linked tiles.** Every tile exists once. Subsets and previews point to it, so an edit anywhere shows up everywhere, live.
 - **Subsets.** Organize tiles into typed sets, each exported as its own Tiled sheet:
   - *Unstructured*: free arrangement (buildings, props, multi-tile objects).
@@ -69,8 +70,8 @@ In Tiled, add the `.tsx` files to a map and the terrain brush works with no setu
 | Fill | `G` | | Export Again | `Ctrl+Shift+E` |
 | Line | `L` | | Save | `Ctrl+S` |
 | Rectangle | `U` | | Copy / Paste selection | `Ctrl+C` / `Ctrl+V` |
-| Ellipse | `Shift+U` | | | |
-| Lighten / darken | `D` | | | |
+| Ellipse | `Shift+U` | | Flip horizontal / vertical | `Shift+H` / `Shift+V` |
+| Lighten / darken | `D` | | Rotate clockwise / counter-clockwise | `R` / `Shift+R` |
 | Select + move | `M` | | | |
 | Color picker | `I` or `Alt+click` | | Preferences | `Ctrl+,` |
 | Swap colours | `X` | | | |

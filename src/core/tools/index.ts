@@ -198,3 +198,4 @@ export function brushPoints(p: Pt, n: number): Pt[] {
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) pts.push({ x: p.x - o + x, y: p.y - o + y });
   return pts;
 }
+export * from "./transform";

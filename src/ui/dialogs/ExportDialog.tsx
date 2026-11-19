@@ -7,10 +7,13 @@ import { Field, Modal, NumberInput } from "../widgets";
 
 const close = () => ui.set({ dialog: null });
 
-export function ExportDialog() {
+export function ExportDialog({ scope, title }: { scope?: Id[]; title?: string } = {}) {
   const project = useProject();
   const last = useUi((s) => s.lastExport);
-  const [s, setS] = useState<ExportSettings>(() => last?.settings ?? defaultExportSettings());
+  const [s, setS] = useState<ExportSettings>(() => {
+    const base = last?.settings ?? defaultExportSettings();
+    return scope ? { ...base, scope } : base;
+  });
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<ExportSettings>) => setS((o) => ({ ...o, ...patch }));
   const selected = new Set(s.scope === "all" ? [] : s.scope);
@@ -31,7 +34,7 @@ export function ExportDialog() {
 
   return (
     <Modal
-      title="Export Project"
+      title={title ?? "Export Project"}
       onClose={close}
       width={560}
       footer={

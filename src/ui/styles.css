@@ -954,3 +954,12 @@ input[type="color"] {
   font-family: Consolas, monospace;
   text-align: center;
 }
+
+/* ---------- right-click menus ---------- */
+.context-menu {
+  min-width: 180px;
+  z-index: 2000;
+}
+.context-menu .menu-item.danger .menu-label {
+  color: var(--danger, #e06c6c);
+}

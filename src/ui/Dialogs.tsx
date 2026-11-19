@@ -272,7 +272,7 @@ export function Dialogs() {
     case "import":
       return <ImportDialog fileName={d.fileName} bytes={d.bytes} />;
     case "export":
-      return <ExportDialog />;
+      return <ExportDialog key={d.scope?.join(",") ?? "all"} scope={d.scope} title={d.title} />;
     case "nearDup":
       return <NearDupDialog />;
     case "preferences":
